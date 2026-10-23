@@ -11,7 +11,10 @@
  *
  *   1. shape, across 200 seeds x 10 varied cities (curated and hashed-
  *      identity towns both): a valid clubId that is the chosen city's own
- *      club, 18+ players, every one of them under contract, no dilemma,
+ *      club, 18+ players, every one of them under contract and holding
+ *      exactly the contract enterPreseason's firstEver branch would give it
+ *      (seedContract(id) for every non-story player, STORY_CONTRACT_YEARS for
+ *      the two story friends — not just "has a contract"), no dilemma,
  *      weekBlockedReason === null, sponsor null, tutorialSeen true,
  *      obV2.namesDue true, the two story friends in the starting XI, and
  *      money matching setArchetype('mental')'s own formula (budgetBias 1.0)
@@ -26,9 +29,13 @@
  *      formula — do not; the ones that are V2's intended difference (two
  *      extra players in the squad, no sponsor chosen, preseason already
  *      closed) are documented, not asserted equal
- *   4. sabotage: a state with its contracts stripped (what quickStart would
- *      produce if seedContract were deleted from enterPreseason) fails the
- *      "every player has a contract" assertion point 1 relies on
+ *   4. sabotage, two modes: contracts stripped entirely (what quickStart
+ *      would produce if seedContract were deleted from enterPreseason) fails
+ *      the "every player has a contract" assertion; and non-story contracts
+ *      flattened to 3 years (what the firstEver branch silently falling
+ *      through to the kid-up-from-youth default would produce) fails the
+ *      seedContract(id) assertion even though every player still "has a
+ *      contract" — both are what point 1 relies on to catch this class of bug
  *
  * Point 1's 2000 (seed, city) pairs only run quickStart and the cheap
  * assertions; point 3's full match (simulateMatch + commitRound) runs on 20
@@ -39,6 +46,8 @@ import { newGameV2, quickStart, traditionKit } from '../src/game/onboardV2.ts';
 import { getManager } from '../src/data/managers.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
+import { seedContract } from '../src/game/preseason.ts';
+import { STORY_CONTRACT_YEARS } from '../src/game/friends.ts';
 
 const fails: string[] = [];
 let checked = 0;
@@ -47,6 +56,11 @@ const TEST_CITIES = [
   'תל אביב', 'חיפה', 'ירושלים', 'באר שבע', 'כפר סבא',
   'חדרה', 'נצרת', 'דימונה', 'אילת', 'אזור',   // the last one has no CURATED entry: the hashed-identity path
 ];
+
+/** mirrors state.ts's own (unexported) storyFriendIds */
+function storyFriendIds(gs: G.GameState): Set<string> {
+  return new Set(gs.friends.filter(f => f.story && !f.sold).map(f => f.id));
+}
 
 function play(gs: G.GameState): G.GameState {
   const inp = G.liveMatchInput(gs);
@@ -87,6 +101,15 @@ function toMatch(gs: G.GameState): { gs: G.GameState; calls: number } {
       if (all.length < 18) fails.push(`${city}/${seed}: squad has only ${all.length} players, expected 18+`);
       const noContract = all.filter(p => !(p.id in gs.contracts));
       if (noContract.length) fails.push(`${city}/${seed}: ${noContract.length} players have no contract`);
+      const story = storyFriendIds(gs);
+      checked += all.length;
+      for (const p of all) {
+        const expected = story.has(p.id) ? STORY_CONTRACT_YEARS : seedContract(p.id);
+        const got = gs.contracts[p.id];
+        if (got !== expected) {
+          fails.push(`${city}/${seed}: ${p.id} contract is ${got}, expected ${expected} (${story.has(p.id) ? 'story friend, STORY_CONTRACT_YEARS' : 'seedContract(id), first-ever preseason'})`);
+        }
+      }
       if (G.weekBlockedReason(gs) !== null) fails.push(`${city}/${seed}: weekBlockedReason is "${G.weekBlockedReason(gs)}", expected null`);
       if (gs.phase !== 'tactic' || gs.dilemma !== null) fails.push(`${city}/${seed}: phase is "${gs.phase}" with dilemma ${JSON.stringify(gs.dilemma)}, expected tactic/no dilemma`);
       if (gs.sponsor !== null) fails.push(`${city}/${seed}: sponsor is set, expected null until after match 1`);
@@ -163,20 +186,34 @@ function oldFlow(city: string, seed: number): G.GameState {
   console.log(`  round 1 played for real on ${ran}/${TEST_CITIES.length} cities, committed without throwing; league shape/tier/rival match the old flow on the same seed+city+archetype+kit`);
 }
 
-/* ===================== 4: SABOTAGE — A SQUAD WITHOUT CONTRACTS FAILS POINT 1 ===================== */
+/* ===================== 4: SABOTAGE — A SQUAD WITH NO OR WRONG CONTRACTS FAILS POINT 1 ===================== */
 {
   let gs = newGameV2(300_001);
   gs = quickStart(gs, 'חיפה');
   const sq = G.mySquad(gs);
   const all = [...sq.starters, ...sq.bench];
+  const story = storyFriendIds(gs);
   checked += 2;
   if (all.some(p => !(p.id in gs.contracts))) fails.push('a healthy quickStart already has a player with no contract — the check itself is broken');
+  if (all.some(p => gs.contracts[p.id] !== (story.has(p.id) ? STORY_CONTRACT_YEARS : seedContract(p.id)))) {
+    fails.push('a healthy quickStart already has a player whose contract is not seedContract(id)/STORY_CONTRACT_YEARS — the check itself is broken');
+  }
 
-  // simulate exactly what removing seedContract from enterPreseason would hand back: the same squad, no contracts at all
+  // mode 1: simulate exactly what removing seedContract from enterPreseason would hand back: the same squad, no contracts at all
   const stripped = { ...gs, contracts: {} };
   const strippedNoContract = all.filter(p => !(p.id in stripped.contracts));
   if (strippedNoContract.length !== all.length) fails.push('the simulated sabotage (contracts stripped) did not actually strip every player — this check cannot be trusted to catch a real one');
   else console.log(`  sabotage confirmed: with contracts stripped (as a seedContract removal would do), all ${all.length} players would fail the "has a contract" assertion point 1 relies on`);
+
+  // mode 2: simulate the subtler sabotage of enterPreseason's `else if (firstEver) contracts[id] = seedContract(id);`
+  // falling through to the flat `else contracts[id] = 3;` branch — still "has a contract", but the wrong one
+  const flattened = { ...gs, contracts: Object.fromEntries(all.map(p => [p.id, story.has(p.id) ? STORY_CONTRACT_YEARS : 3])) };
+  const flattenedWrong = all.filter(p => !story.has(p.id) && flattened.contracts[p.id] !== seedContract(p.id));
+  if (flattenedWrong.length === 0 && all.some(p => !story.has(p.id) && seedContract(p.id) !== 3)) {
+    fails.push('the simulated sabotage (contracts flattened to 3 years) did not actually diverge from seedContract for any non-story player — this check cannot be trusted to catch a real one');
+  } else {
+    console.log(`  sabotage confirmed: with non-story contracts flattened to 3 years (as the firstEver branch being skipped would do), ${flattenedWrong.length}/${all.filter(p => !story.has(p.id)).length} non-story players would fail the seedContract(id) assertion point 1 relies on`);
+  }
 }
 
 console.log(`\n${checked} checks`);
