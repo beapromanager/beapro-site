@@ -1434,9 +1434,11 @@ export function advancePreseason(gs: GameState): GameState {
 
 /**
  * The whistle. Anyone still out of contract and not renewed now walks for free,
- * but never below a legal squad, then the league begins.
+ * but never below a legal squad, then the league begins. Exported for
+ * quickStart (onboardV2.ts, plan T2), the one caller that reaches this
+ * straight from enterPreseason, skipping the three market rounds.
  */
-function finishPreseason(gs: GameState): GameState {
+export function finishPreseason(gs: GameState): GameState {
   let next = gs;
   const expiring = expiringPlayers(gs);
   for (const p of expiring) {
@@ -4294,6 +4296,10 @@ function cupNightNotice(gs: GameState, night: CupNight, goals: [number, number],
 export function startWeek(gs: GameState): GameState {
   // the sheet has to be in order first: nobody banned in the eleven, sixteen names
   if (weekBlockedReason(gs)) return gs;
+  // ONBOARD_V2 (plan T2): week 1 of a quick-started career asks no dilemma at
+  // all, straight to the shortened tactic/teamsheet screens — exactly where
+  // toTactic lands a manager who has just answered one
+  if (gs.obV2 && gs.week === 1 && gs.season === 1) return { ...gs, phase: 'tactic', dilemma: null };
   // a cup round the manager has no part in this week (a staged entrant still waiting, or a round after he was
   // knocked out) plays itself out quietly here, before anything checks whether his own night is due
   gs = advanceCupAiWeek(gs);

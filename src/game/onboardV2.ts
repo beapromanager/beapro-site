@@ -6,13 +6,19 @@
  * academy.ts's ?youth do. A built game never honours the override.
  */
 
-import { newGame, club, mySquad, MAX_SQUAD } from './state.ts';
+import {
+  newGame, club, mySquad, MAX_SQUAD,
+  setProfile, pickCity, setArchetype, afterSigning, enterPreseason, finishPreseason, startWeek,
+} from './state.ts';
 import type { GameState } from './state.ts';
 import { makeStoryFriend, storyLevel, STORY_SPECS, STORY_CONTRACT_YEARS } from './friends.ts';
 import { overall, createRng } from '../engine/matchEngine.ts';
 import type { Player } from '../engine/matchEngine.ts';
 import { nextPlayerId } from '../data/squadGen.ts';
 import type { Squad } from '../data/squadGen.ts';
+import { findCity, clubFromCity, CITIES } from '../data/cities.ts';
+import { nearestKitColor } from '../data/palette.ts';
+import type { KitColorId } from '../data/palette.ts';
 
 /** On a developer's machine only, the local override opens the door. A built game never does. */
 function devOverride(): boolean {
@@ -102,4 +108,47 @@ export function addStoryFriends(gs: GameState): GameState {
     })),
     contracts,
   };
+}
+
+/**
+ * The city's own identity colour, snapped onto the fourteen kit shades —
+ * exactly what pickCity's `region.clubs[myId].primary` already carries
+ * before any override, read the same way buildRegionLeague picks the city
+ * (findCity, falling back to CITIES[0]) so a quick start never disagrees
+ * with the club it is about to build.
+ */
+export function traditionKit(city: string): KitColorId {
+  const c = findCity(city) ?? CITIES[0];
+  return nearestKitColor(clubFromCity(c, 1).primary).id;
+}
+
+/**
+ * T2: from the city to the first match, in one call (plan section "quick
+ * Start"). Chains existing onboarding steps with nothing of its own: a
+ * placeholder profile, the city's own colours in a plain pattern, the
+ * neutral archetype, no signing effect, the two story friends (T3), and
+ * straight through the summer without its three market rounds (every
+ * player signs through seedContract exactly as enterPreseason always has,
+ * nobody is yet old enough to expire). The sponsor and kit reveal are left
+ * for later screens (T4+): the kit was already chosen on the way in
+ * (afterSigning's wearChosenKit), so the summer never raises one, and the
+ * sponsor is simply skipped rather than answered, same as a null sponsor is
+ * everywhere else (sponsorRound(null) === 0).
+ */
+export function quickStart(gs: GameState, city: string, name?: string): GameState {
+  gs = setProfile(gs, { name: name?.trim() || 'המאמן', nickname: '', age: 40, type: 'mental' });
+  gs = pickCity(gs, city, traditionKit(city), 'solid');
+  gs = setArchetype(gs, 'mental');
+  gs = afterSigning(gs, {});
+  // enterPreseason before addStoryFriends: it reads "is this the squad's
+  // first ever contract round" off an empty gs.contracts, which is only true
+  // before the two story friends' five-year deals go in. The other way round
+  // would quietly hand every inherited player a flat three-year deal instead
+  // of enterPreseason's own 1..3 year seedContract spread.
+  gs = enterPreseason(gs);
+  gs = addStoryFriends(gs);
+  gs = finishPreseason(gs);   // the three summer rounds, skipped; nobody expires in year one anyway
+  gs = { ...gs, phase: 'hub', tutorialSeen: true };   // sponsor deferred (T4+): stays null, same as everywhere else
+  if (gs.obV2) gs = { ...gs, obV2: { ...gs.obV2, namesDue: true } };   // names asked after match 1 (T6)
+  return startWeek(gs);
 }
