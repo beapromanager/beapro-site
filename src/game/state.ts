@@ -41,7 +41,10 @@ export type { LocalKind, LocalRival };
 import { kitColor, type KitColorId } from '../data/palette.ts';
 import { isLegend, isLegendClub, withLegend } from '../data/legends.ts';
 import type { Friend, FriendSpec } from './friends.ts';
-import { makeFriend, friendTrait, friendAfterSummer, shiftTo, isFriend, markFriendGone } from './friends.ts';
+import {
+  makeFriend, friendTrait, friendAfterSummer, shiftTo, isFriend, markFriendGone,
+  storyFriendAfterSummer, STORY_CONTRACT_YEARS,
+} from './friends.ts';
 import type { MateMemory } from './mate.ts';
 import { emptyMate, texterOf, pickMateTrigger, afterRound as mateAfterRound } from './mate.ts';
 import type { MateAnswer, MateTrigger } from '../data/mateChats.ts';
@@ -1186,8 +1189,13 @@ function friendsSummer(
     if (!f || start === undefined) return p;
     const apps = gs.seasonStats[p.id]?.apps ?? 0;
     // the rate belongs to the season he just played, not to the birthday he
-    // has just had, so his first summer is the one he spent being twenty one
-    const target = friendAfterSummer(start, p.age - 1, friendTrait(f.trait), apps, rounds, gs.season);
+    // has just had, so his first summer is the one he spent being twenty one.
+    // A story friend (T3) does not read the twenty-one-year-old curve at all:
+    // he arrived at 25-27 and uses his own, slower road, capped short of the
+    // ordinary ceiling.
+    const target = f.story
+      ? storyFriendAfterSummer(start, p.age - 1, friendTrait(f.trait), apps, rounds, gs.season)
+      : friendAfterSummer(start, p.age - 1, friendTrait(f.trait), apps, rounds, gs.season);
     const out: Player = { ...p, attrs: { ...p.attrs }, gk: p.gk ? { ...p.gk } : undefined };
     shiftTo(out, Math.round(target));
     return out;
@@ -1222,6 +1230,23 @@ function friendsFollow(gs: GameState, squads: Record<string, Squad>, toClubId: s
   return { ...squads, [toClubId]: { starters: sq.starters, bench } };
 }
 
+/**
+ * Ids of the two ONBOARD_V2 story friends (T3), still here. A story friend
+ * must never turn up as a summer departure saga or an expiring contract (plan
+ * section 4), which the ordinary friend was never promised, so this stays
+ * narrower than isFriend on purpose.
+ */
+function storyFriendIds(gs: GameState): Set<string> {
+  return new Set(gs.friends.filter(f => f.story && !f.sold).map(f => f.id));
+}
+
+/** A squad with the two story friends taken out, for the one place (starTarget) that must never see them. */
+function squadWithoutStoryFriends(gs: GameState, sq: Squad): Squad {
+  const story = storyFriendIds(gs);
+  if (!story.size) return sq;
+  return { starters: sq.starters.filter(p => !story.has(p.id)), bench: sq.bench.filter(p => !story.has(p.id)) };
+}
+
 /** What the two of them do to the room every summer, by their qualities. */
 export function friendsMorale(gs: GameState): number {
   return gs.friends
@@ -1240,8 +1265,13 @@ export function enterPreseason(gs: GameState): GameState {
   const sq = mySquad(gs);
   const ids = [...sq.starters, ...sq.bench].map(p => p.id);
   const firstEver = Object.keys(gs.contracts).length === 0;
+  const story = storyFriendIds(gs);
   const contracts: Record<string, number> = {};
   for (const id of ids) {
+    // a story friend (T3) never runs down to a renewal he never asked for:
+    // his deal is simply kept at its full five years every summer, so he
+    // never surfaces in expiringPlayers or the preseason's renewal cards
+    if (story.has(id)) { contracts[id] = STORY_CONTRACT_YEARS; continue; }
     if (id in gs.contracts) contracts[id] = clamp(gs.contracts[id] - 1, 0, 5);
     // the opening squad gets full 1..3 year deals, so nobody expires in the
     // first summer. Contracts only bite from the second season, once these
@@ -1580,7 +1610,8 @@ export interface PreEvent {
 /** My players whose contract has run out this summer. */
 function expiringPlayers(gs: GameState): Player[] {
   const sq = mySquad(gs);
-  return [...sq.starters, ...sq.bench].filter(p => contractYears(gs.contracts, p.id) <= 0);
+  const story = storyFriendIds(gs);
+  return [...sq.starters, ...sq.bench].filter(p => !story.has(p.id) && contractYears(gs.contracts, p.id) <= 0);
 }
 
 /**
@@ -1597,7 +1628,7 @@ export function preseasonEvents(gs: GameState): PreEvent[] {
   // one man never fills two cards at once
   const inSaga = new Set<string>();
   if (!done.has('dep-star') && club(gs).tier < TOP_TIER) {
-    const star = starTarget(sq);
+    const star = starTarget(squadWithoutStoryFriends(gs, sq));
     if (star) {
       out.push({
         id: 'dep-star', kind: 'star', player: star,
@@ -1652,7 +1683,7 @@ function removePlayer(gs: GameState, playerId: string): GameState {
 export function resolveDeparture(gs: GameState, kind: 'star' | 'young', optionIndex: number): GameState {
   const sq = mySquad(gs);
   if (kind === 'star') {
-    const p = starTarget(sq);
+    const p = starTarget(squadWithoutStoryFriends(gs, sq));
     if (!p) return gs;
     const fee = starFee(p, club(gs).tier);
     const extra = feeSweetener(club(gs).tier, gs.seasonSeed + p.name.length);
@@ -2557,6 +2588,8 @@ export function partBlockedReason(gs: GameState, playerId: string): string | nul
   const sq = mySquad(gs);
   const p = [...sq.starters, ...sq.bench].find(x => x.id === playerId);
   if (!p) return 'הוא לא בסגל שלך';
+  // T3: a story friend cannot be parted with in the season he arrived in
+  if (gs.season === 1 && storyFriendIds(gs).has(playerId)) return 'חבר שלך מהעונה הראשונה. אפשר רק מהעונה השנייה, מהכרטיס המלא';
   if (gs.emergencyYouth === playerId || (gs.youthUp ?? []).includes(playerId)) return 'הוא רשום רק למחזור הזה, אחריו הוא חוזר לנוער';
   if (squadSize(gs) <= MIN_SQUAD) return `אי אפשר לרדת מתחת ל-${MIN_SQUAD} שחקנים. תחתים מישהו קודם.`;
   const keeper = lastKeeperReason(gs, playerId);

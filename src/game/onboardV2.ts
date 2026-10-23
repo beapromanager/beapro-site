@@ -6,8 +6,13 @@
  * academy.ts's ?youth do. A built game never honours the override.
  */
 
-import { newGame } from './state.ts';
+import { newGame, club, mySquad, MAX_SQUAD } from './state.ts';
 import type { GameState } from './state.ts';
+import { makeStoryFriend, storyLevel, STORY_SPECS, STORY_CONTRACT_YEARS } from './friends.ts';
+import { overall, createRng } from '../engine/matchEngine.ts';
+import type { Player } from '../engine/matchEngine.ts';
+import { nextPlayerId } from '../data/squadGen.ts';
+import type { Squad } from '../data/squadGen.ts';
 
 /** On a developer's machine only, the local override opens the door. A built game never does. */
 function devOverride(): boolean {
@@ -39,5 +44,62 @@ export function newGameV2(seed = 12345, now = Date.now()): GameState {
     ...newGame(seed),
     phase: 'ob-prologue',
     obV2: { choice: null, namesDue: false, deferred: { kit: true, arch: true, market: true }, t0: now },
+  };
+}
+
+/** The weakest starter on the given position, or the weakest starter of all when nobody plays it. */
+function weakestStarterIndex(starters: Player[], position: Player['position']): number {
+  const onPosition = starters.map((_, i) => i).filter(i => starters[i].position === position);
+  const pool = onPosition.length ? onPosition : starters.map((_, i) => i);
+  return pool.reduce((lo, i) => (overall(starters[i]) < overall(starters[lo]) ? i : lo), pool[0]);
+}
+
+/**
+ * T3: the two players who come with you (plan section 4). Generated a grade
+ * above the division, straight into the starting XI in place of its weakest
+ * man on their position, five year contracts, and `story: true` so every
+ * protection already written for `gs.friends` (sellPlayer, friendsFollow,
+ * friendsSummer, friendsMorale, texterOf) picks them up for free.
+ *
+ * Needs a club (pickCity already run); idempotent, so calling it again once
+ * the two are in gs.friends does nothing.
+ */
+export function addStoryFriends(gs: GameState): GameState {
+  if (!gs.clubId || gs.friends.length) return gs;
+  const tier = club(gs).tier;
+  const leagueBest = Math.max(
+    ...Object.values(gs.league.squads).flatMap(sq => sq.starters.map(overall)),
+  );
+  const level = storyLevel(tier, leagueBest);
+  const rng = createRng(gs.seasonSeed * 53 + 19937);
+  const sq = mySquad(gs);
+  const taken = new Set([...sq.starters, ...sq.bench].map(p => p.name));
+  const made = STORY_SPECS.map(spec => makeStoryFriend(spec, level, nextPlayerId(), rng, taken));
+
+  let starters = [...sq.starters];
+  const displaced: Player[] = [];
+  for (let i = 0; i < made.length; i++) {
+    const idx = weakestStarterIndex(starters, STORY_SPECS[i].position);
+    displaced.push(starters[idx]);
+    starters = starters.map((p, j) => (j === idx ? made[i] : p));
+  }
+  let bench = [...sq.bench, ...displaced];
+  while (starters.length + bench.length > MAX_SQUAD && bench.length) {
+    const worst = bench.reduce((lo, p, i) => (overall(p) < overall(bench[lo]) ? i : lo), 0);
+    bench = bench.filter((_, i) => i !== worst);
+  }
+  const squad: Squad = { starters, bench };
+
+  const contracts = { ...gs.contracts };
+  for (const p of made) contracts[p.id] = STORY_CONTRACT_YEARS;
+
+  return {
+    ...gs,
+    league: { ...gs.league, squads: { ...gs.league.squads, [gs.clubId]: squad } },
+    friends: made.map((p, i) => ({
+      id: p.id, name: p.name, trait: STORY_SPECS[i].trait, position: STORY_SPECS[i].position,
+      texter: STORY_SPECS[i].texter, story: true as const,
+    })),
+    contracts,
   };
 }

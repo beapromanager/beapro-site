@@ -26,7 +26,7 @@
 
 import type { Player, Position, Attributes, Rng } from '../engine/matchEngine.ts';
 import { overall, playerSeed, positionWeights } from '../engine/matchEngine.ts';
-import { makePlayer } from '../data/squadGen.ts';
+import { makePlayer, NEUTRAL_TRAITS } from '../data/squadGen.ts';
 import { leagueCeiling } from '../data/clubs.ts';
 
 export type FriendTraitId = 'bull' | 'wind' | 'brain' | 'engine' | 'boot';
@@ -120,6 +120,8 @@ export interface Friend {
   texter: boolean;
   /** sold by the manager himself, which the other one does not forget */
   sold?: boolean;
+  /** one of the ONBOARD_V2 two, who arrived from the לאומית in session one rather than named at twenty one */
+  story?: true;
 }
 
 /** They are both twenty one, because that is the age you can still promise. */
@@ -318,4 +320,104 @@ export function makeFriend(spec: FriendSpec, tier: number, id: string, rng: Rng)
  */
 export function markFriendGone(friends: Friend[], playerId: string): Friend[] {
   return friends.map(f => (f.id === playerId ? { ...f, sold: true } : f));
+}
+
+/*
+ * ONBOARD_V2, T3: the two who come with you from the לאומית.
+ *
+ * They are not a raw twenty one year old's gamble, they are already "a grade
+ * above the division, not too strong": a central midfielder and a striker,
+ * fit, settled, and signed for five years, straight into the starting XI. The
+ * old friend (above) is untouched by any of this; a story friend is a second,
+ * separate road through the same Friend bookkeeping.
+ */
+
+/** They played in the לאומית, so they are not twenty one. */
+export const STORY_AGES: readonly [number, number] = [25, 27];
+export const STORY_FITNESS = 92;
+export const STORY_MORALE = 80;
+/** Five seasons, set directly on signing rather than drawn from seedContract. */
+export const STORY_CONTRACT_YEARS = 5;
+/**
+ * A quarter of the ordinary friend's summer rate.
+ *
+ * The plan's own first guess was half rate, but measured against the
+ * five-season, full-minutes 'engine' trait (ceiling 81, ages 25-29, where the
+ * ordinary rate table is at its most generous) half rate alone reaches 70 -
+ * eleven and a half above ליגה ב׳'s own ceiling, past the sanity margin the
+ * plan sets in the same section. Quartered, he reaches 66 over the same five
+ * seasons: still visibly better for having played, never close to the
+ * division above being unable to tell him from one of its own.
+ */
+export const STORY_GROWTH = 0.25;
+/** A story friend tops out four short of his quality's own ceiling, so playing him never quite hands the squad a man as good as the best the game can draw. */
+export const STORY_CEILING_MARGIN = 4;
+/** How far past next season's level he arrives, before the league-wide cap. */
+export const STORY_LEVEL_MARGIN = 3;
+/** Never above the best man the league itself can show, minus this. */
+export const STORY_BEST_MARGIN = 3;
+
+export interface StoryFriendSpec {
+  age: number;
+  position: Position;
+  trait: FriendTraitId;
+  texter: boolean;
+}
+
+/** One a central midfielder, one a striker; the minimum of decisions the plan calls for. */
+export const STORY_SPECS: readonly StoryFriendSpec[] = [
+  { age: STORY_AGES[0], position: 'CM', trait: 'engine', texter: true },
+  { age: STORY_AGES[1], position: 'ST', trait: 'boot', texter: false },
+];
+
+/**
+ * A grade above the division he is about to play in, and never above the best
+ * man the whole league can show. `leagueBest` is the highest overall() among
+ * every club's starting XI, read off the league the way the scout would.
+ */
+export function storyLevel(tier: number, leagueBest: number): number {
+  const target = Math.round(leagueCeiling(tier + 1) + STORY_LEVEL_MARGIN);
+  return Math.min(target, Math.round(leagueBest) - STORY_BEST_MARGIN);
+}
+
+/**
+ * Build one of the two. Generated like any other player at his level and
+ * then given his age, his fitness and his shape, exactly like makeFriend
+ * does for the old flow.
+ *
+ * Unlike makeFriend, his seed is never touched: it stays whatever
+ * makePlayer gave the temporary name he arrives with, so that renaming him on
+ * the names screen later (T3's deferred naming) never shifts his seed and
+ * never shifts what he is capable of mid-career.
+ */
+export function makeStoryFriend(
+  spec: StoryFriendSpec, level: number, id: string, rng: Rng, usedNames?: Set<string>,
+): Player {
+  const p = makePlayer(spec.position, level, rng, NEUTRAL_TRAITS, usedNames);
+  p.id = id;
+  p.age = spec.age;
+  p.fitness = STORY_FITNESS;
+  p.morale = STORY_MORALE;
+  shapeFriend(p, friendTrait(spec.trait), level);
+  return p;
+}
+
+/**
+ * A story friend's summer: half the ordinary friend's rate, and a ceiling
+ * four short of his quality's own. Built for a man who arrives at 25-27 and
+ * is meant to still be "a grade above" the division years later, not for the
+ * ordinary friend's twenty one year old curve, which would otherwise age him
+ * out within a season or two.
+ */
+export function storyFriendAfterSummer(
+  current: number, age: number, trait: FriendTrait, apps: number, rounds: number, season: number,
+  growth: number = STORY_GROWTH, ceilingMargin: number = STORY_CEILING_MARGIN,
+): number {
+  const ceiling = trait.ceiling - ceilingMargin;
+  const rate = rateAt(age, trait.lateBy) * growth;
+  if (rate <= 0) return current;
+  const slow = trait.slowStart && season <= 3 ? 0.5 : 1;
+  const room = Math.max(0, Math.min(1, (ceiling - current) / TAPER));
+  const gain = rate * minutesFactor(apps, rounds) * slow * room;
+  return Math.min(ceiling, current + gain);
 }
