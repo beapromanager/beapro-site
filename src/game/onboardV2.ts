@@ -79,10 +79,7 @@ function weakestStarterIndex(starters: Player[], position: Player['position']): 
 export function addStoryFriends(gs: GameState): GameState {
   if (!gs.clubId || gs.friends.length) return gs;
   const tier = club(gs).tier;
-  const leagueBest = Math.max(
-    ...Object.values(gs.league.squads).flatMap(sq => sq.starters.map(overall)),
-  );
-  const level = storyLevel(tier, leagueBest);
+  const level = storyLevel(tier);
   const rng = createRng(gs.seasonSeed * 53 + 19937);
   const sq = mySquad(gs);
   const taken = new Set([...sq.starters, ...sq.bench].map(p => p.name));

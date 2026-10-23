@@ -12,8 +12,12 @@
  * apply to them for free; this checks the few that do not and the level and
  * growth math that is entirely their own.
  *
- * Six points, matching plan section 4's own "בדיקה":
- *   1. creation level, across seeds and tiers, bounded and capped
+ * Six points, matching plan section 4's own "בדיקה" (plus 1b, the real path):
+ *   1. creation level, across seeds and tiers: within the plan's own band
+ *      AND equal to its own formula, round(leagueCeiling(tier+1)+3) - no
+ *      cap against the league's own best starter (removed; see friends.ts)
+ *   1b. the real path: quickStart itself, 200 seeds x 10 cities at tier 1,
+ *      both story friends land at 61-62 off mySquad + gs.friends
  *   2. sale blocked; survives a sacking and a rescue; partWays blocked in
  *      season 1; a contract that never expires
  *   3. renaming never reseeds him, so it never moves his overall
@@ -28,7 +32,7 @@
  */
 
 import * as G from '../src/game/state.ts';
-import { addStoryFriends } from '../src/game/onboardV2.ts';
+import { addStoryFriends, newGameV2, quickStart } from '../src/game/onboardV2.ts';
 import {
   STORY_SPECS, STORY_GROWTH, STORY_CEILING_MARGIN, STORY_CONTRACT_YEARS,
   storyLevel, storyFriendAfterSummer, friendTrait,
@@ -87,35 +91,70 @@ function play(gs: G.GameState): G.GameState {
   return G.commitRound(gs, res);
 }
 
-/* 1. CREATION: A GRADE ABOVE, CAPPED.
-      200 seeds, every tier: round(leagueCeiling(tier+1)+3), never under the
-      division's own round(leagueCeiling(tier)+4), never over the best man
-      the league itself can show, minus three. */
+/* 1. CREATION: A GRADE ABOVE, EXACTLY THE PLAN'S FORMULA.
+      200 seeds, every tier: level is always within [floor, roof] AND equal to
+      round(leagueCeiling(tier+1)+3) - the league's own best starter plays no
+      part in it (an earlier draft capped him at that best minus three, which
+      on real region leagues routinely pulled him under the plan's own floor;
+      see friends.ts's storyLevel doc). */
 {
   const SEEDS = 200;
   const TIERS = [1, 2, 3, 4, 5];
-  let lo = Infinity, hi = -Infinity, capped = 0;
+  let lo = Infinity, hi = -Infinity;
+  let outRated = 0, outRatedTotal = 0;
   for (const tier of TIERS) {
     for (let s = 0; s < SEEDS; s++) {
       const built = buildRegionLeague('חיפה', tier);
       const league = initLeague(built.clubs, 1000 + s);
-      const leagueBest = Math.max(...Object.values(league.squads).flatMap(sq => sq.starters.map(overall)));
-      const level = storyLevel(tier, leagueBest);
-      checked += 2;
+      const level = storyLevel(tier);
+      checked += 3;
       const floor = Math.round(leagueCeiling(tier) + 4);
       const roof = Math.round(leagueCeiling(tier + 1) + 4);
-      const cap = Math.round(leagueBest) - 3;
+      const expected = Math.round(leagueCeiling(tier + 1) + 3);
+      if (level < floor) fails.push(`tier ${tier} seed ${s}: level ${level} is under ${floor}`);
       if (level > roof) fails.push(`tier ${tier} seed ${s}: level ${level} is over ${roof}`);
-      if (level > cap) fails.push(`tier ${tier} seed ${s}: level ${level} is above the league's own best (${leagueBest}) minus three`);
-      // the floor only holds when a weak league's own cap is not the thing
-      // doing the pulling down - the cap winning is correct, not a fault
-      if (cap < floor) capped++;
-      else { checked++; if (level < floor) fails.push(`tier ${tier} seed ${s}: level ${level} is under ${floor}`); }
+      if (level !== expected) fails.push(`tier ${tier} seed ${s}: level ${level} is not the plan's own round(leagueCeiling(tier+1)+3) = ${expected}`);
+      // informational: how often he now out-rates the best starter of every
+      // other club in the league, now that nothing caps him against it
+      const otherClubsBest = Object.entries(league.squads)
+        .filter(([clubId]) => clubId !== built.clubs[0]?.id)
+        .flatMap(([, sq]) => sq.starters.map(overall));
+      if (otherClubsBest.length) {
+        outRatedTotal++;
+        if (level > Math.max(...otherClubsBest)) outRated++;
+      }
       lo = Math.min(lo, level);
       hi = Math.max(hi, level);
     }
   }
-  console.log(`  creation level over ${TIERS.length * SEEDS} (tier, seed) pairs: ${lo}-${hi} (the best-in-league cap bit ${capped} times)`);
+  console.log(`  creation level over ${TIERS.length * SEEDS} (tier, seed) pairs: ${lo}-${hi}, always round(leagueCeiling(tier+1)+3)`);
+  console.log(`  informational: out-rates the best starter of every other club in the league in ${outRated}/${outRatedTotal} (tier, seed) pairs (${(100 * outRated / outRatedTotal).toFixed(1)}%)`);
+}
+
+/* 1b. THE REAL PATH: quickStart itself, tier 1, varied cities.
+       200 seeds x 10 cities, read off mySquad + gs.friends the way the game
+       would, land both story friends at 61-62 - the plan's own headline
+       number, not just the formula in isolation. */
+{
+  const SEEDS = 200;
+  const CITIES10 = ['חיפה', 'תל אביב', 'ירושלים', 'באר שבע', 'נתניה', 'אשדוד', 'חולון', 'רמת גן', 'אשקלון', 'הרצליה'];
+  let lo = Infinity, hi = -Infinity;
+  for (const city of CITIES10) {
+    for (let s = 0; s < SEEDS; s++) {
+      const gs = quickStart(newGameV2(s), city);
+      const story = gs.friends.filter(f => f.story);
+      checked += story.length;
+      const all = mine(gs);
+      for (const f of story) {
+        const p = all.find(x => x.id === f.id);
+        const ovr = p ? overall(p) : -1;
+        if (ovr < 61 || ovr > 62) fails.push(`${city}/${s}: story friend ${f.name} overall ${ovr} is not in [61, 62]`);
+        lo = Math.min(lo, ovr);
+        hi = Math.max(hi, ovr);
+      }
+    }
+  }
+  console.log(`  real path (quickStart), ${CITIES10.length} cities x ${SEEDS} seeds at tier 1: story friends land ${lo}-${hi}`);
 }
 
 /* 2. PROTECTED: NO SALE, A SACKING SURVIVED, SEASON ONE IS UNTOUCHABLE,
@@ -236,7 +275,7 @@ function fiveSeasonRoad(growth: number): { id: string; final: number }[] {
   const tier = 1;
   return STORY_SPECS.map(spec => {
     const trait = friendTrait(spec.trait);
-    let ovr = storyLevel(tier, 67);
+    let ovr = storyLevel(tier);
     let age = spec.age;
     for (let s = 1; s <= 5; s++) {
       ovr = storyFriendAfterSummer(ovr, age, trait, 14, 14, s, growth, STORY_CEILING_MARGIN);

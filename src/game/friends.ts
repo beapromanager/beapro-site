@@ -352,10 +352,8 @@ export const STORY_CONTRACT_YEARS = 5;
 export const STORY_GROWTH = 0.25;
 /** A story friend tops out four short of his quality's own ceiling, so playing him never quite hands the squad a man as good as the best the game can draw. */
 export const STORY_CEILING_MARGIN = 4;
-/** How far past next season's level he arrives, before the league-wide cap. */
+/** How far past next season's level he arrives. */
 export const STORY_LEVEL_MARGIN = 3;
-/** Never above the best man the league itself can show, minus this. */
-export const STORY_BEST_MARGIN = 3;
 
 export interface StoryFriendSpec {
   age: number;
@@ -371,13 +369,24 @@ export const STORY_SPECS: readonly StoryFriendSpec[] = [
 ];
 
 /**
- * A grade above the division he is about to play in, and never above the best
- * man the whole league can show. `leagueBest` is the highest overall() among
- * every club's starting XI, read off the league the way the scout would.
+ * A grade above the division he is about to play in: plan section 4's own
+ * formula, round(leagueCeiling(tier+1)+3), clamped only into the plan's own
+ * acceptance band so a future change to the margins cannot silently push him
+ * outside it.
+ *
+ * An earlier draft also capped him at the league's own best starter minus
+ * three, on the assumption that a real region league's best sits around
+ * 65-67. Measured, the best starter in a real tier 1 league is mostly 61-65
+ * (median ~63), so that cap routinely pulled him down to 59-60 and, for the
+ * weakest leagues, as low as 54-56 - under the plan's own floor. The plan
+ * never asked for that cap to win against its own headline number, so it is
+ * gone; the band below is the only limit left.
  */
-export function storyLevel(tier: number, leagueBest: number): number {
+export function storyLevel(tier: number): number {
   const target = Math.round(leagueCeiling(tier + 1) + STORY_LEVEL_MARGIN);
-  return Math.min(target, Math.round(leagueBest) - STORY_BEST_MARGIN);
+  const floor = Math.round(leagueCeiling(tier) + 4);
+  const roof = Math.round(leagueCeiling(tier + 1) + 4);
+  return Math.max(floor, Math.min(roof, target));
 }
 
 /**
