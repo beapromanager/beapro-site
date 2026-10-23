@@ -93,7 +93,8 @@
     "check:daily": "node --experimental-strip-types scripts/daily-check.mts",
     "check:onboardv2-flag": "node --experimental-strip-types scripts/onboardv2-flag-check.mts",
     "check:storyfriends": "node --experimental-strip-types scripts/storyfriends-check.mts",
-    "check:onboardv2-quickstart": "node --experimental-strip-types scripts/onboardv2-quickstart-check.mts"
+    "check:onboardv2-quickstart": "node --experimental-strip-types scripts/onboardv2-quickstart-check.mts",
+    "check:onboardv2-citypicker": "node --experimental-strip-types scripts/onboardv2-citypicker-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",

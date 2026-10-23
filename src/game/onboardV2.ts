@@ -53,6 +53,12 @@ export function newGameV2(seed = 12345, now = Date.now()): GameState {
   };
 }
 
+/** The one step the minimal city picker needs: prologue to city, nothing else moves it. */
+export function toObCity(gs: GameState): GameState {
+  if (gs.phase !== 'ob-prologue') return gs;
+  return { ...gs, phase: 'ob-city' };
+}
+
 /** The weakest starter on the given position, or the weakest starter of all when nobody plays it. */
 function weakestStarterIndex(starters: Player[], position: Player['position']): number {
   const onPosition = starters.map((_, i) => i).filter(i => starters[i].position === position);
