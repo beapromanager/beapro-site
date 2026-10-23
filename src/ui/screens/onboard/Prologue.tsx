@@ -23,7 +23,7 @@ import { Icon } from '../../components/Icon.tsx';
 const TEAM = 'הקבוצה שלך בלאומית';
 
 const CAPTIONS: Partial<Record<PrologueStepId, string>> = {
-  'bench-shot': `דקה 89 ב${TEAM}. היציע כבר שותק.`,
+  'bench-shot': 'דקה 89. היציע כבר שותק.',
   goal5: 'גול חמישי. נגמר.',
   down: 'אתה עומד בקו, לבד עם זה.',
   sit: 'אתה מסתובב ויושב על הספסל. בלי מילה.',
