@@ -11,7 +11,8 @@ import { LEAGUE_NAMES } from '../data/clubs.ts';
 import { IntroCinematic } from './screens/Intro.tsx';
 import { Tutorial } from './components/Tutorial.tsx';
 import { OnboardManager, OnboardClub } from './screens/Onboard.tsx';
-import { ObPrologueScreen, ObCityScreen } from './screens/ObCity.tsx';
+import { ObCityScreen } from './screens/ObCity.tsx';
+import { Prologue } from './screens/onboard/Prologue.tsx';
 import { ArchetypeScreen } from './screens/Archetype.tsx';
 import { SquadScreen } from './screens/Squad.tsx';
 import { SigningScreen } from './screens/Signing.tsx';
@@ -63,7 +64,7 @@ import { setInviteHandler, setInstallHandler, setReportHandler } from './compone
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
-import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, cupMark, giftMark, dailyMark, STEP_ORDER } from '../game/telemetry.ts';
+import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, cupMark, giftMark, dailyMark, obMark, STEP_ORDER } from '../game/telemetry.ts';
 import { AdminScreen } from './screens/Admin.tsx';
 import type { Stats as AdminStats } from './screens/Admin.tsx';
 import { TELEMETRY_URL } from '../data/telemetry.ts';
@@ -301,6 +302,11 @@ export function App() {
     if (!booted || adminKey || !gs.clubId) return;
     if (giftSigned) giftMark('gift10');
   }, [booted, adminKey, gs.clubId, giftSigned]);
+  // ONBOARD_V2 (plan section 8): the first live match of a quick-started career kicked off
+  useEffect(() => {
+    if (!booted || adminKey || !gs.obV2) return;
+    if (gs.phase === 'match' && gs.season === 1 && gs.week === 1) obMark('ob_kickoff');
+  }, [booted, adminKey, gs.obV2, gs.phase, gs.season, gs.week]);
 
   function startNew() {
     track('career_new');
@@ -373,7 +379,7 @@ export function App() {
         <OnboardClub gs={gs} onPick={(city, kit, pattern) => setGs(G.pickCity(gs, city, kit, pattern))} />
       )}
       {gs.phase === 'ob-prologue' && (
-        <ObPrologueScreen onNext={() => setGs(toObCity(gs))} />
+        <Prologue onDone={choice => setGs(toObCity(gs, choice))} />
       )}
       {gs.phase === 'ob-city' && (
         <ObCityScreen onDone={(city, name) => setGs(quickStart(gs, city, name || undefined))} />

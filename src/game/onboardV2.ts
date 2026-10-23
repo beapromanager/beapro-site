@@ -53,10 +53,17 @@ export function newGameV2(seed = 12345, now = Date.now()): GameState {
   };
 }
 
-/** The one step the minimal city picker needs: prologue to city, nothing else moves it. */
-export function toObCity(gs: GameState): GameState {
+/**
+ * T4: prologue to city, nothing else moves it. Also records the one choice
+ * the prologue made (bench or kicked the bottle) onto obV2.choice, so it
+ * rides through quickStart (every step below spreads gs, so obV2 — choice
+ * included — survives the whole chain untouched) into the saved career.
+ * Defaults to 'bench': a player who taps "דלג ›" before choosing gets the
+ * same outcome as the one who sat down, never the one who kicked the bottle.
+ */
+export function toObCity(gs: GameState, choice: 'bench' | 'bottle' = 'bench'): GameState {
   if (gs.phase !== 'ob-prologue') return gs;
-  return { ...gs, phase: 'ob-city' };
+  return { ...gs, phase: 'ob-city', obV2: gs.obV2 ? { ...gs.obV2, choice } : gs.obV2 };
 }
 
 /** The weakest starter on the given position, or the weakest starter of all when nobody plays it. */

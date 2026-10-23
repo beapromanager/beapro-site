@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './ui/tokens.css';
+import './ui/onboard.css';
 import { App } from './ui/App.tsx';
 import { ErrorBoundary } from './ui/components/Crashed.tsx';
 import { wireInstall, registerWorker } from './ui/install.ts';

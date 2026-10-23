@@ -90,7 +90,7 @@ export const QUEUE_CAP = 60;
  * and reaching the top does not mean having sat in every season on the way. So they are never backfilled, each is
  * reported when it happens, and the server keeps one of each per device like every other step.
  */
-export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number] | typeof CUP_MARKS[number] | typeof GIFT_MARKS[number] | typeof SHARE_MARKS[number] | typeof DAILY_MARKS[number];
+export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number] | typeof CUP_MARKS[number] | typeof GIFT_MARKS[number] | typeof SHARE_MARKS[number] | typeof DAILY_MARKS[number] | typeof OB_MARKS[number];
 /**
  * The two money facts worth counting, agreed with Itzik on 3.10: a career that
  * fell below zero, and a career the owner ended over debt. The bot simulations
@@ -128,10 +128,23 @@ export const SHARE_MARKS = ['share_tap'] as const;
  * the door is shut, because no run can begin.
  */
 export const DAILY_MARKS = ['daily_1', 'daily_7', 'daily_30'] as const;
+/**
+ * ONBOARD_V2 (plan section 8): the rebuilt first run's own milestones, every
+ * `ob_*` name the plan lists, sent once a device like the rest. The door is
+ * ONBOARD_V2 in onboardV2.ts, false for every player, so none of these ever
+ * leave a phone until it opens — and even then the Worker drops them at its
+ * door until it is taught these names too (plan T7), which is why the flag
+ * must stay off until that deploy is approved and done.
+ */
+export const OB_MARKS = [
+  'ob_prologue', 'ob_goal5', 'ob_choice_bench', 'ob_choice_bottle', 'ob_skip', 'ob_stills',
+  'ob_fired', 'ob_call', 'ob_city', 'ob_named_self', 'ob_kickoff', 'ob_match1_end',
+  'ob_names', 'ob_names_skip', 'ob_kit', 'ob_arch', 'ob_sponsor', 'ob_market',
+] as const;
 /** a career older than this is counted in its twentieth season, "twenty or more" */
 export const MAX_SEASON = 20;
 /** the only shapes the game sends and the worker keeps. The worker holds the same pattern, telemetry-check compares them */
-export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|cup_in|cup_sf|cup_final|cup_won|gift10|share_tap|daily_1|daily_7|daily_30)$/;
+export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|cup_in|cup_sf|cup_final|cup_won|gift10|share_tap|daily_1|daily_7|daily_30|ob_(prologue|goal5|choice_bench|choice_bottle|skip|stills|fired|call|city|named_self|kickoff|match1_end|names|names_skip|kit|arch|sponsor|market))$/;
 
 export function isMilestone(k: unknown): k is Milestone {
   return typeof k === 'string' && MILESTONE.test(k);
@@ -385,6 +398,11 @@ export function shareMark(k: typeof SHARE_MARKS[number]): void {
 
 /** Note that a career past ten seasons signed the loyalty gift. */
 export function giftMark(k: typeof GIFT_MARKS[number]): void {
+  trackMilestone(k);
+}
+
+/** Note that a V2 prologue/city/first-week milestone was reached. Same no-op-with-no-endpoint path as every other mark. */
+export function obMark(k: typeof OB_MARKS[number]): void {
   trackMilestone(k);
 }
 

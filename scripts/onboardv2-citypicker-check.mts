@@ -1,13 +1,15 @@
 /**
- * ONBOARD_V2, plan T4: the minimal city picker.
+ * ONBOARD_V2, plan T4: the city picker (src/ui/screens/ObCity.tsx).
  *   node --experimental-strip-types scripts/onboardv2-citypicker-check.mts
  *
- * Replaces the T1 dev placeholder with two real screens (src/ui/screens/ObCity.tsx):
- * ObPrologueScreen (one line, one button, ob-prologue -> ob-city via the pure
- * toObCity helper) and ObCityScreen (a tappable list of every city in
- * src/data/cities.ts's CITIES — the same list the screen imports, so this
- * check reads the UI's own source of truth, not a copy of it — plus an
- * optional name field, confirming into quickStart).
+ * ObCityScreen: a tappable list of every city in src/data/cities.ts's
+ * CITIES — the same list the screen imports, so this check reads the UI's
+ * own source of truth, not a copy of it — plus an optional name field,
+ * confirming into quickStart. The prologue itself (ob-prologue) moved to a
+ * real scene in this same T4 session; its own state machine, shot manifest,
+ * and the toObCity(gs, choice) wiring are covered by prologue-check.mts,
+ * not here — this file stays about the city screen and the toObCity/
+ * quickStart plumbing it sits on.
  *
  * Five points:
  *   1. toObCity only moves ob-prologue -> ob-city; every other phase (and a
@@ -17,9 +19,12 @@
  *      to that city's own club
  *   3. a typed name becomes profile.name verbatim (trimmed); empty or
  *      whitespace-only becomes 'המאמן', matching quickStart's own fallback
- *   4. a static source check: App.tsx renders ObCityScreen for 'ob-city'
- *      and ObPrologueScreen for 'ob-prologue', and no longer contains the
- *      T1 placeholder text "עדיין אין מסך אמיתי"
+ *   4. a static source check: App.tsx renders ObCityScreen for 'ob-city',
+ *      wires its onDone to quickStart, no longer contains the T1 placeholder
+ *      text "עדיין אין מסך אמיתי", and no longer references the removed
+ *      ObPrologueScreen (prologue-check.mts owns the positive assertion that
+ *      the real Prologue is wired in; this is just the negative check that
+ *      the old name is gone)
  *   5. sabotage, two modes: an emptied city list (what a broken CITIES
  *      import would show) fails point 2's "every city reaches tactic"
  *      coverage, and a no-op toObCity (what losing the phase write would do)
@@ -104,27 +109,26 @@ let checked = 0;
 /* ===================== 4: STATIC SOURCE CHECK ON App.tsx ===================== */
 {
   const src = readFileSync('src/ui/App.tsx', 'utf8');
-  checked += 4;
+  checked += 5;
   if (!/from\s+['"]\.\/screens\/ObCity\.tsx['"]/.test(src)) {
     fails.push('App.tsx no longer imports from ./screens/ObCity.tsx');
-  }
-  if (!/gs\.phase === 'ob-prologue'[\s\S]{0,80}ObPrologueScreen/.test(src)) {
-    fails.push("App.tsx does not render ObPrologueScreen for phase === 'ob-prologue'");
   }
   if (!/gs\.phase === 'ob-city'[\s\S]{0,80}ObCityScreen/.test(src)) {
     fails.push("App.tsx does not render ObCityScreen for phase === 'ob-city'");
   }
-  // The confirm button must actually run quickStart (and the prologue button toObCity), not just render.
+  // The confirm button must actually run quickStart, not just render.
   if (!/ObCityScreen\s+onDone=\{\s*\(\s*city\s*,\s*name\s*\)\s*=>\s*setGs\(\s*quickStart\(\s*gs\s*,\s*city\s*,/.test(src)) {
     fails.push('App.tsx: ObCityScreen onDone no longer calls setGs(quickStart(gs, city, ...))');
   }
-  if (!/ObPrologueScreen\s+onNext=\{\s*\(\)\s*=>\s*setGs\(\s*toObCity\(\s*gs\s*\)\s*\)/.test(src)) {
-    fails.push('App.tsx: ObPrologueScreen onNext no longer calls setGs(toObCity(gs))');
+  // the T1 placeholder (ObPrologueScreen) is gone, replaced by the real
+  // Prologue scene (plan T4, asserted positively by prologue-check.mts)
+  if (src.includes('ObPrologueScreen')) {
+    fails.push('App.tsx still references the removed T1 placeholder ObPrologueScreen');
   }
   if (src.includes('עדיין אין מסך אמיתי')) {
     fails.push('App.tsx still contains the T1 placeholder text "עדיין אין מסך אמיתי" — the real screens were not wired in its place');
   }
-  console.log('  App.tsx imports ObCity.tsx and renders ObPrologueScreen/ObCityScreen for ob-prologue/ob-city; the T1 placeholder text is gone');
+  console.log('  App.tsx imports ObCity.tsx and renders ObCityScreen for ob-city (wired to quickStart); the removed ObPrologueScreen and the T1 placeholder text are both gone');
 }
 
 /* ===================== 5: SABOTAGE — SIMULATED, TWO MODES ===================== */

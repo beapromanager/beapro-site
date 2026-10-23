@@ -1,0 +1,95 @@
+/* ============================================================================
+   ONBOARD_V2, plan T4: the prologue and the city screen that follows it.
+   Full-bleed slots (ShotFrame.tsx) in the same "title-tunnel" vein as
+   Title.tsx's own entry screen: one picture, the words on top of it, nothing
+   else competing. The palette is section 5's two "worlds" — steel-blue/
+   charcoal for the night of the 5-0, dawn-gold/sand/grass for the morning
+   after — as plain CSS gradients until T8 brings real stills.
+   ========================================================================== */
+:root{
+  --ob-night-grad: radial-gradient(130% 85% at 50% 0%, #1C2733 0%, #0E1620 52%, #070B10 100%);
+  --ob-dawn-grad: radial-gradient(130% 85% at 50% 0%, #E7B66B 0%, #D9C7A3 46%, #9FC3D9 100%);
+}
+
+/* the same trick Title.tsx's tunnel uses: a full-height, no-padding stage */
+.frame:has(.ob-full){height:100dvh; overflow:hidden; padding-top:0; padding-bottom:0;}
+
+.ob-frame{
+  position:relative; height:100%; min-height:100%; overflow:hidden;
+  display:flex; flex-direction:column; justify-content:flex-end;
+  background-size:cover; background-position:center; color:#fff;
+}
+.ob-shade{
+  position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(180deg, rgba(5,7,12,.18) 0%, rgba(5,7,12,.08) 32%, rgba(5,7,12,.82) 100%);
+}
+.ob-flash{position:absolute; inset:0; pointer-events:none; background:#fff; opacity:.85; animation:obFlash .5s ease-out both;}
+@keyframes obFlash{from{opacity:.85} to{opacity:0}}
+.ob-frame[data-shake="1"]{animation:obShake .5s ease-in-out both;}
+@keyframes obShake{
+  10%,90%{transform:translateX(-1px)} 20%,80%{transform:translateX(2px)}
+  30%,50%,70%{transform:translateX(-4px)} 40%,60%{transform:translateX(4px)}
+}
+@media (prefers-reduced-motion: reduce){
+  .ob-frame[data-shake="1"]{animation:none}
+  .ob-flash{animation:none; opacity:.35}
+}
+
+.ob-tap{position:absolute; inset:0; z-index:2; cursor:pointer; background:transparent; border:0; padding:0;}
+
+.ob-skip{
+  position:absolute; top:calc(env(safe-area-inset-top,0px) + 14px); inset-inline-end:14px; z-index:6;
+  font-size:12px; font-weight:800; color:rgba(255,255,255,.88); background:rgba(0,0,0,.4);
+  border:1px solid rgba(255,255,255,.28); border-radius:999px; padding:7px 14px 7px 10px;
+  display:flex; align-items:center; gap:4px;
+}
+
+.ob-eyebrow{
+  position:relative; z-index:3; padding:calc(env(safe-area-inset-top,0px) + 16px) 18px 0;
+  font-size:12px; font-weight:800; letter-spacing:.14em; color:rgba(255,255,255,.65);
+}
+
+.ob-score{
+  position:relative; z-index:3; align-self:center; margin:auto 0 16px; text-align:center;
+  background:rgba(0,0,0,.48); border:1px solid rgba(255,255,255,.2); border-radius:var(--plate-sm);
+  padding:10px 24px;
+}
+.ob-score b{font-family:var(--font-display); font-size:32px; letter-spacing:.02em; direction:ltr; display:block;}
+.ob-score span{display:block; font-size:11px; letter-spacing:.14em; color:rgba(255,255,255,.65); margin-top:3px;}
+
+.ob-cap{
+  position:relative; z-index:3; padding:16px 18px calc(env(safe-area-inset-bottom,0px) + 16px);
+  font-size:16.5px; line-height:1.55; font-weight:700; text-align:center;
+}
+.ob-tapHint{
+  position:relative; z-index:3; align-self:center; margin-bottom:8px;
+  font-size:11.5px; color:rgba(255,255,255,.55); font-weight:700;
+}
+
+.ob-choices{position:relative; z-index:3; display:flex; flex-direction:column; gap:10px; padding:0 16px calc(env(safe-area-inset-bottom,0px) + 18px);}
+.ob-choice-btn{
+  padding:16px 16px; border-radius:var(--plate-sm); font-size:15.5px; font-weight:800;
+  background:rgba(10,12,16,.58); border:1px solid rgba(255,255,255,.28); color:#fff; text-align:center;
+}
+.ob-choice-btn:active{background:rgba(233,185,73,.22); border-color:var(--gold);}
+
+.ob-phone{position:relative; z-index:3; display:flex; flex-direction:column; align-items:center; margin:auto 0 24px; text-align:center;}
+.ob-ring{
+  display:inline-grid; place-items:center; width:74px; height:74px; border-radius:50%;
+  background:rgba(233,185,73,.15); border:1px solid rgba(233,185,73,.48);
+  animation:obRing 1.6s var(--ease) infinite;
+}
+@keyframes obRing{0%,100%{box-shadow:0 0 0 0 rgba(233,185,73,.35)} 50%{box-shadow:0 0 0 18px rgba(233,185,73,0)}}
+@media (prefers-reduced-motion: reduce){ .ob-ring{animation:none} }
+.ob-caller{margin-top:13px; font-size:12.5px; font-weight:800; letter-spacing:.08em; color:rgba(255,255,255,.75);}
+.ob-answer{margin-top:20px; padding:13px 30px; border-radius:999px; background:var(--gold); color:#1B1305; font-weight:900; font-size:14.5px;}
+.ob-msg{margin-top:16px; max-width:300px; font-size:15.5px; line-height:1.6; font-weight:700;}
+
+/* ---- the city screen: same full-bleed stage, a card for the pick itself ---- */
+.ob-cityHead{position:relative; z-index:3; padding:calc(env(safe-area-inset-top,0px) + 18px) 18px 0;}
+.ob-cityCard{
+  position:relative; z-index:3; margin:10px 14px calc(env(safe-area-inset-bottom,0px) + 14px);
+  background:rgba(8,10,14,.72); backdrop-filter:blur(2px);
+  border:1px solid rgba(255,255,255,.14); border-radius:var(--plate);
+  padding:14px; display:flex; flex-direction:column; gap:12px; max-height:72vh;
+}
