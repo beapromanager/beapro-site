@@ -145,7 +145,9 @@ export type Phase =
   | 'euro-draw' | 'euro-bracket'
   /* גביע המדינה: the same shape as Europe's, one knockout leg at a time */
   | 'cup-match' | 'cup-pens'
-  | 'cup-draw' | 'cup-bracket';
+  | 'cup-draw' | 'cup-bracket'
+  /* ONBOARD_V2 (plan T1): the rebuilt first run, behind the flag in onboardV2.ts */
+  | 'ob-prologue' | 'ob-city' | 'ob-names';
 
 export type MarketLine = 'gk' | 'def' | 'mid' | 'atk';
 
@@ -341,6 +343,12 @@ export interface GameState {
   /** which set of renamed names this save has been brought up to (see game/renames.ts) */
   namesVersion?: number;
   phase: Phase;
+  /**
+   * The rebuilt first run's own bookkeeping (onboardV2.ts, plan T1). Absent on
+   * every save written before it, and on any career started with the flag off:
+   * the field is optional precisely so the loader never has to invent one.
+   */
+  obV2?: { choice: 'bench' | 'bottle' | null; namesDue: boolean; deferred: { kit: boolean; arch: boolean; market: boolean }; t0: number };
   seasonSeed: number;
   clubId: string;
   profile: ManagerProfile;

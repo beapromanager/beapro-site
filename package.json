@@ -90,7 +90,8 @@
     "check:teaser": "node --experimental-strip-types scripts/teaser-check.mts",
     "check:loyal": "node --experimental-strip-types scripts/loyal-check.mts",
     "check:share": "node --experimental-strip-types scripts/share-check.mts",
-    "check:daily": "node --experimental-strip-types scripts/daily-check.mts"
+    "check:daily": "node --experimental-strip-types scripts/daily-check.mts",
+    "check:onboardv2-flag": "node --experimental-strip-types scripts/onboardv2-flag-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",

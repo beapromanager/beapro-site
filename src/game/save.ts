@@ -43,7 +43,9 @@ export interface SaveSummary {
 
 export function saveCareer(state: GameState): void {
   // do not persist half finished onboarding, there is nothing to return to
-  if (!state.clubId || state.phase === 'onboard-archetype' || state.phase === 'onboard-manager' || state.phase === 'onboard-club') return;
+  // (ob-prologue/ob-city already have no clubId, named here too so the guard says so explicitly)
+  if (!state.clubId || state.phase === 'onboard-archetype' || state.phase === 'onboard-manager' || state.phase === 'onboard-club'
+    || state.phase === 'ob-prologue' || state.phase === 'ob-city') return;
   // A sacked manager is NOT finished any more: the club across town calls on the
   // next screen, so the save is kept and closing the app mid sacking drops you
   // back on the letter rather than losing the career.

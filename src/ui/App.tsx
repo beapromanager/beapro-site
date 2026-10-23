@@ -38,6 +38,7 @@ import { CupBracketScreen } from './screens/CupBracket.tsx';
 import { YouthScreen } from './screens/Youth.tsx';
 import { AcademyScreen } from './screens/Academy.tsx';
 import { YOUTH_V2 } from '../game/academy.ts';
+import { obV2Enabled, newGameV2 } from '../game/onboardV2.ts';
 import { ScoutScreen } from './screens/Scout.tsx';
 import { YouthDecisionScreen } from './screens/YouthDecision.tsx';
 import { NoticeScreen } from './screens/Notice.tsx';
@@ -304,7 +305,8 @@ export function App() {
     track('career_new');
     clearCareer();
     setSaved(null);
-    const fresh = G.newGame(Math.floor(Math.random() * 100000) + 1);
+    const seed = Math.floor(Math.random() * 100000) + 1;
+    const fresh = obV2Enabled() ? newGameV2(seed) : G.newGame(seed);
     setGs(ref ? G.acceptInvite(fresh, ref) : fresh);
     setBooted(true);
   }
@@ -368,6 +370,16 @@ export function App() {
       )}
       {gs.phase === 'onboard-club' && (
         <OnboardClub gs={gs} onPick={(city, kit, pattern) => setGs(G.pickCity(gs, city, kit, pattern))} />
+      )}
+      {/* ONBOARD_V2 (plan T1): no real screens yet, that is T4. A reachable placeholder so a developer who
+          flips the local override does not get a blank screen, with a way back into the normal flow. */}
+      {(gs.phase === 'ob-prologue' || gs.phase === 'ob-city') && (
+        <div style={{ padding: 24, textAlign: 'center', direction: 'rtl' }}>
+          <p>ONBOARD_V2: עדיין אין מסך אמיתי לשלב "{gs.phase}" (ייבנה ב-T4).</p>
+          <button onClick={() => { const { obV2, ...rest } = gs; setGs({ ...rest, phase: 'onboard-manager' }); }}>
+            חזרה לזרימה הרגילה
+          </button>
+        </div>
       )}
       {gs.phase === 'signing' && (
         <SigningScreen gs={gs} onDone={effect => setGs(G.afterSigning(gs, effect))} />
