@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ShotFrame } from '../../onboard/ShotFrame.tsx';
+import { preloadShots } from '../../onboard/shots.ts';
 import type { ShotId } from '../../onboard/shots.ts';
 import { nextPrologueStep, PROLOGUE_START, PROLOGUE_STEPS } from '../../../game/prologueFlow.ts';
 import type { ObChoice, PrologueStepId } from '../../../game/prologueFlow.ts';
@@ -24,14 +25,23 @@ const TEAM = 'הקבוצה שלך בלאומית';
 
 const CAPTIONS: Partial<Record<PrologueStepId, string>> = {
   'bench-shot': 'דקה 89. היציע כבר שותק.',
-  goal5: 'גול חמישי. נגמר.',
+  goal5: 'וזה ה-5. איזה בושות! הקבוצה מתפרקת.',
   down: 'אתה עומד בקו, לבד עם זה.',
   sit: 'אתה מסתובב ויושב על הספסל. בלי מילה.',
-  'bottle-kick': 'אתה בועט אותו הצידה, לדשא הריק. רחוק מכולם.',
+  'bottle-kick': 'אתה בועט אותו בחזרה, לכיוון היציע של היריבה. הוא נוחת על המסלול הריק, רחוק מכל אדם.',
   'red-card': 'השופט מרים כרטיס אדום. מולך.',
   tunnel: 'אתה הולך למנהרה, לבד.',
   call: 'אני מאמין בך. פתחנו קבוצה חדשה בעיר. תעיף את העיר קדימה.',
+  squad: 'זה הסגל החדש שלך. חבר׳ה מהשכונה, מגרש חול, בוקר שבת.',
 };
+
+/** what the beat AFTER `step` will show: both branch shots at the choice, the city backdrop at the end (plan section 7) */
+function nextShots(step: PrologueStepId): ShotId[] {
+  if (step === 'choice') return ['s05a-sit', 's05b-bottle'];
+  const n = nextPrologueStep(step, { choice: 'bench' });
+  if (n === 'city') return ['s11-city'];
+  return PROLOGUE_STEPS[n].shots as ShotId[];
+}
 
 export function Prologue({ onDone }: { onDone: (choice: ObChoice) => void }) {
   const [step, setStep] = useState<PrologueStepId>(PROLOGUE_START);
@@ -40,6 +50,7 @@ export function Prologue({ onDone }: { onDone: (choice: ObChoice) => void }) {
 
   useEffect(() => { obMark('ob_prologue'); }, []);
   useEffect(() => {
+    preloadShots(nextShots(step));
     setAnswered(false);
     if (step === 'goal5') obMark('ob_goal5');
     if (step === 'call') obMark('ob_call');
@@ -88,7 +99,7 @@ export function Prologue({ onDone }: { onDone: (choice: ObChoice) => void }) {
   if (step === 'fired' || step === 'morning') {
     const caller = step === 'fired' ? 'הבעלים' : 'מספר לא מוכר';
     return (
-      <ShotFrame shot={shot} className="ob-full">
+      <ShotFrame shot={shot} className="ob-full" playVideo={step === 'fired' && answered}>
         {skipBtn}
         <button className="ob-tap" aria-label={answered ? 'הקש להמשך' : 'הקש לענות'} onClick={() => (answered ? go() : answer())} />
         <div className="ob-phone">

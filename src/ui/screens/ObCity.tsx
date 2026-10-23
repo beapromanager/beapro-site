@@ -6,10 +6,10 @@
  * (onboardV2.ts), with one short beat (ObArrive.tsx, shot s12-loyal)
  * between confirming a city and actually calling it.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CITIES } from '../../data/cities.ts';
 import { Icon } from '../components/Icon.tsx';
-import { SHOTS } from '../onboard/shots.ts';
+import { SHOTS, preloadShots } from '../onboard/shots.ts';
 import { obMark } from '../../game/telemetry.ts';
 import { ObArriveScreen } from './onboard/ObArrive.tsx';
 
@@ -30,6 +30,9 @@ export function ObCityScreen({ onDone }: { onDone: (city: string, name: string) 
     return s ? CITIES.filter(c => c.name.includes(s)) : CITIES;
   }, [q]);
 
+  // the next beat after the pick is ObArrive (s12-loyal): warm only that one (plan section 7)
+  useEffect(() => { preloadShots(['s12-loyal']); }, []);
+
   function confirm() {
     if (!selected) return;
     obMark('ob_city');
@@ -42,7 +45,7 @@ export function ObCityScreen({ onDone }: { onDone: (city: string, name: string) 
   }
 
   const bgShot = SHOTS['s11-city'];
-  const bgStyle = bgShot.image ? { backgroundImage: `url('${bgShot.image}')` } : { background: 'var(--ob-dawn-grad)' };
+  const bgStyle = bgShot.image ? { backgroundImage: `url('${bgShot.image}'), var(--ob-dawn-grad)` } : { background: 'var(--ob-dawn-grad)' };
 
   return (
     <div className="ob-frame ob-full" style={bgStyle}>

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as G from '../game/state.ts';
 import { saveCareer, loadCareer, savedSummary, clearCareer } from '../game/save.ts';
 import type { SaveSummary } from '../game/save.ts';
@@ -12,8 +12,9 @@ import { IntroCinematic } from './screens/Intro.tsx';
 import { Tutorial } from './components/Tutorial.tsx';
 import { OnboardManager, OnboardClub } from './screens/Onboard.tsx';
 import { ObCityScreen } from './screens/ObCity.tsx';
-import { Prologue } from './screens/onboard/Prologue.tsx';
 import { ArchetypeScreen } from './screens/Archetype.tsx';
+// ONBOARD_V2 plan section 7: the prologue is its own chunk, fetched only when a new career actually enters it
+const Prologue = lazy(() => import('./screens/onboard/Prologue.tsx').then(m => ({ default: m.Prologue })));
 import { SquadScreen } from './screens/Squad.tsx';
 import { SigningScreen } from './screens/Signing.tsx';
 import { FriendsScreen } from './screens/Friends.tsx';
@@ -379,7 +380,9 @@ export function App() {
         <OnboardClub gs={gs} onPick={(city, kit, pattern) => setGs(G.pickCity(gs, city, kit, pattern))} />
       )}
       {gs.phase === 'ob-prologue' && (
-        <Prologue onDone={choice => setGs(toObCity(gs, choice))} />
+        <Suspense fallback={<div className="ob-frame ob-full" style={{ background: 'var(--ob-night-grad)' }} />}>
+          <Prologue onDone={choice => setGs(toObCity(gs, choice))} />
+        </Suspense>
       )}
       {gs.phase === 'ob-city' && (
         <ObCityScreen onDone={(city, name) => setGs(quickStart(gs, city, name || undefined))} />

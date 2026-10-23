@@ -1,15 +1,15 @@
 /**
  * ONBOARD_V2, plan T4/T6 (section 6): one slot per shot id, exactly the
- * thirteen the shot list names. Nothing here is media yet — that is T8,
- * after Itzik produces it in Higgsfield and T5 builds the real player. Until
- * then every slot renders its own fallback (ShotFrame.tsx): an existing
- * still from the game's own art where one genuinely fits the beat (checked
- * by eye against section 5's iron rules: no real crest, no real face, no
- * text baked into the image), or a plain night/dawn gradient otherwise.
+ * ids the shot list names. Every slot the prologue actually shows now has a
+ * placeholder still in public/onboard/ (generated to the plan's section 5
+ * style guide: cold national-league night vs golden ליגה ג׳ morning, no real
+ * crest, colours, brand or face, and no text baked in). They are stand-ins
+ * until Itzik's Higgsfield media (T8) replaces them under a bumped version
+ * suffix (.v2 ...), which is also what keeps any cache honest (plan section 7:
+ * versioned file names, public/sw.js untouched).
  *
- * `night` picks which half of section 5's two palettes a plain gradient
- * falls back to: steel-blue/charcoal for the לאומית's last night (shots
- * 1-8), dawn-gold/sand/grass for the ליגה ג׳ morning after (shots 9-13).
+ * `night` picks which half of section 5's two palettes the gradient behind
+ * the still uses while it loads (or if it is ever missing).
  */
 import { asset } from '../asset.ts';
 
@@ -22,36 +22,65 @@ export type ShotId =
 export interface Shot {
   id: ShotId;
   night: boolean;
-  /** an existing still that already fits the beat; absent means "gradient only" until T8 */
+  /** the still for this slot (also the poster when `video` is set); absent means "gradient only" */
   image?: string;
+  /** a short, muted, looping-free clip that plays over the still (s08 only today) */
+  video?: string;
 }
 
+const ob = (file: string) => asset(`/onboard/${file}`);
+
 export const SHOTS: Readonly<Record<ShotId, Shot>> = {
-  // the night of the 5-0: a real aerial stadium-at-night still (public/stadium/tier4.webp,
-  // used nowhere else in the app), a night match-moment still for the goal (public/moments/shot/night-b.webp)
-  's01-stadium': { id: 's01-stadium', night: true, image: asset('/stadium/tier4.webp') },
-  's02-bench': { id: 's02-bench', night: true },
-  's03-goal5': { id: 's03-goal5', night: true, image: asset('/moments/shot/night-b.webp') },
-  's04-down': { id: 's04-down', night: true },
-  's05a-sit': { id: 's05a-sit', night: true },
-  's05b-bottle': { id: 's05b-bottle', night: true },
-  // no still fits a red card without a referee's face in frame (the one candidate,
-  // moments/def-tackle/slide-red.webp, shows the referee's face close up, which the
-  // plan's iron rule 2 forbids) — gradient and the code's own caption carry this beat
-  's06-red': { id: 's06-red', night: true },
-  // the tunnel: title/tunnel.webp is the game's own "coach seen from behind, walking
-  // into the light" image already, exactly this beat's own description
-  's07-tunnel': { id: 's07-tunnel', night: true, image: asset('/title/tunnel.webp') },
-  's08-phone': { id: 's08-phone', night: true },
-  's09-morning': { id: 's09-morning', night: false },
-  // the new ground: public/weekend/entrance.webp, a small lit pitch behind a fence with
-  // apartment blocks behind it, fans seen from behind — already this beat's own picture
-  's10-pitch-gimel': { id: 's10-pitch-gimel', night: false, image: asset('/weekend/entrance.webp') },
-  's11-city': { id: 's11-city', night: false },
-  // the two arriving: public/youth/dusk-poster.webp, an empty small pitch under
-  // floodlights with balls and cones and no people in frame at all
-  's12-loyal': { id: 's12-loyal', night: false, image: asset('/youth/dusk-poster.webp') },
+  's01-stadium': { id: 's01-stadium', night: true, image: ob('s01-stadium.v1.webp') },
+  's02-bench': { id: 's02-bench', night: true, image: ob('s02-bench.v1.webp') },
+  's03-goal5': { id: 's03-goal5', night: true, image: ob('s03-goal5.v1.webp') },
+  's04-down': { id: 's04-down', night: true, image: ob('s04-down.v1.webp') },
+  's05a-sit': { id: 's05a-sit', night: true, image: ob('s05a-sit.v1.webp') },
+  // the bottle flies over the empty running track toward the far (opponents') stand — nobody in its path
+  's05b-bottle': { id: 's05b-bottle', night: true, image: ob('s05b-bottle.v1.webp') },
+  // the referee's raised arm and card only, no face; the coach is a blurred figure from behind
+  's06-red': { id: 's06-red', night: true, image: ob('s06-red.v1.webp') },
+  // seen from behind: the coach walking INTO the dark tunnel
+  's07-tunnel': { id: 's07-tunnel', night: true, image: ob('s07-tunnel.v1.webp') },
+  // the old owner on the phone in a dark executive box; the words are UI, never in the clip
+  's08-phone': { id: 's08-phone', night: true, image: ob('s08-phone.v1.webp'), video: ob('s08-phone.v1.mp4') },
+  // the new owner in the shabby ליגה ג׳ office, warm morning light
+  's09-morning': { id: 's09-morning', night: false, image: ob('s09-morning.v1.webp') },
+  // the new squad: ~15 neighbourhood players on an old sand pitch, golden morning
+  's10-pitch-gimel': { id: 's10-pitch-gimel', night: false, image: ob('s10-pitch-gimel.v1.webp') },
+  's11-city': { id: 's11-city', night: false, image: ob('s11-city.v1.webp') },
+  // the two loyal players, from behind with kit bags, arriving at the sand pitch
+  's12-loyal': { id: 's12-loyal', night: false, image: ob('s12-loyal.v1.webp') },
+  // not shown by any screen today (the match itself follows ObArrive directly)
   's13-kickoff': { id: 's13-kickoff', night: false },
 };
 
 export const SHOT_IDS = Object.keys(SHOTS) as ShotId[];
+
+const warmed = new Set<string>();
+
+/**
+ * Plan section 7: preload only what the NEXT beat shows (both branch shots at
+ * the choice), never the whole prologue up front. Idempotent per URL; a still
+ * is fetched with `new Image()`, a clip with a metadata-only <link rel=preload>
+ * so mobile data is not spent on a video he may skip past.
+ */
+export function preloadShots(ids: readonly ShotId[]): void {
+  if (typeof window === 'undefined') return;
+  for (const id of ids) {
+    const s = SHOTS[id];
+    if (!s) continue;
+    if (s.image && !warmed.has(s.image)) {
+      warmed.add(s.image);
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = s.image;
+    }
+    if (s.video && !warmed.has(s.video) && typeof document !== 'undefined') {
+      warmed.add(s.video);
+      const l = document.createElement('link');
+      l.rel = 'preload'; l.as = 'video'; l.type = 'video/mp4'; l.href = s.video;
+      document.head.appendChild(l);
+    }
+  }
+}

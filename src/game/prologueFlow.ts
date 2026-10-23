@@ -16,7 +16,7 @@ export type ObChoice = 'bench' | 'bottle';
 export type PrologueStepId =
   | 'stadium' | 'bench-shot' | 'goal5' | 'down' | 'choice'
   | 'sit' | 'bottle-kick' | 'red-card'
-  | 'tunnel' | 'fired' | 'morning' | 'call' | 'city';
+  | 'tunnel' | 'fired' | 'morning' | 'call' | 'squad' | 'city';
 
 export interface PrologueStep {
   id: PrologueStepId;
@@ -36,7 +36,9 @@ export const PROLOGUE_STEPS: Readonly<Record<PrologueStepId, PrologueStep>> = {
   tunnel: { id: 'tunnel', shots: ['s07-tunnel'] },
   fired: { id: 'fired', shots: ['s08-phone'] },
   morning: { id: 'morning', shots: ['s09-morning'] },
-  call: { id: 'call', shots: ['s10-pitch-gimel'] },
+  // the new owner's call plays over his own office (s09); the new squad on the sand pitch follows it
+  call: { id: 'call', shots: ['s09-morning'] },
+  squad: { id: 'squad', shots: ['s10-pitch-gimel'] },
   city: { id: 'city', shots: [] },
 };
 
@@ -65,7 +67,8 @@ export function nextPrologueStep(step: PrologueStepId, input?: { choice?: ObChoi
     case 'tunnel': return 'fired';
     case 'fired': return 'morning';
     case 'morning': return 'call';
-    case 'call': return 'city';
+    case 'call': return 'squad';
+    case 'squad': return 'city';
     case 'city': return 'city';
   }
 }

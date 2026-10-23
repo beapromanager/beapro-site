@@ -19,19 +19,25 @@
  *   5. the full ob_* milestone list (src/game/telemetry.ts) passes
  *      isMilestone and matches the client's own MILESTONE regex
  *   6. static: App.tsx no longer references the removed ObPrologueScreen
- *      and renders Prologue for phase 'ob-prologue'
+ *      and renders Prologue for phase 'ob-prologue', lazy-loaded (React.lazy
+ *      + Suspense, plan section 7)
+ *   6b. media: every shot the prologue, the city picker and ObArrive show has
+ *      a still (no dark empty frame), every file exists under public/onboard/
+ *      with a versioned name, stills <=150KB, the clip <=600KB; Itzik's own
+ *      wording for the 5th goal and the bottle kick is in Prologue.tsx
  *
  * Sabotage: two modes, see point 7 below — both run as in-memory
  * simulations here, with the real sabotage-and-restore against the source
  * files (and `git diff` to confirm only intended changes remain) done by
  * hand as part of verifying this file.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import {
   PROLOGUE_STEPS, PROLOGUE_STEP_IDS, PROLOGUE_START, nextPrologueStep, walkPrologue,
 } from '../src/game/prologueFlow.ts';
 import type { PrologueStepId } from '../src/game/prologueFlow.ts';
-import { SHOT_IDS } from '../src/ui/onboard/shots.ts';
+import { SHOT_IDS, SHOTS } from '../src/ui/onboard/shots.ts';
+import type { ShotId } from '../src/ui/onboard/shots.ts';
 import { newGameV2, toObCity, quickStart } from '../src/game/onboardV2.ts';
 import * as G from '../src/game/state.ts';
 import { isMilestone, OB_MARKS, MILESTONE } from '../src/game/telemetry.ts';
@@ -81,13 +87,13 @@ const PLAN_SHOT_IDS = [
   if (!bottle.has('s05b-bottle') || !bottle.has('s06-red')) fails.push(`bottle path is missing its own shots: has s05b-bottle=${bottle.has('s05b-bottle')}, s06-red=${bottle.has('s06-red')}`);
   if (bench.has('s05b-bottle') && bottle.has('s05a-sit')) fails.push('a shot id appears on both branches — the branches are not actually disjoint');
 
-  const SHARED = ['s03-goal5', 's07-tunnel', 's08-phone', 's09-morning'];
+  const SHARED = ['s03-goal5', 's07-tunnel', 's08-phone', 's09-morning', 's10-pitch-gimel'];
   checked += SHARED.length * 2;
   for (const shot of SHARED) {
     if (!bench.has(shot)) fails.push(`bench path is missing shared shot ${shot}`);
     if (!bottle.has(shot)) fails.push(`bottle path is missing shared shot ${shot}`);
   }
-  console.log('  bench never shows s05b-bottle/s06-red, bottle never shows s05a-sit, both show s03-goal5/s07-tunnel/s08-phone/s09-morning');
+  console.log('  bench never shows s05b-bottle/s06-red, bottle never shows s05a-sit, both show s03-goal5/s07-tunnel/s08-phone/s09-morning/s10-pitch-gimel');
 }
 
 /* ===================== 3: SHOT MANIFEST COVERAGE ===================== */
@@ -154,12 +160,49 @@ const PLAN_SHOT_IDS = [
   const src = readFileSync('src/ui/App.tsx', 'utf8');
   checked += 4;
   if (src.includes('ObPrologueScreen')) fails.push('App.tsx still references the removed ObPrologueScreen');
-  if (!/from\s+['"]\.\/screens\/onboard\/Prologue\.tsx['"]/.test(src)) fails.push('App.tsx does not import Prologue from ./screens/onboard/Prologue.tsx');
-  if (!/gs\.phase === 'ob-prologue'[\s\S]{0,80}<Prologue\b/.test(src)) fails.push("App.tsx does not render <Prologue /> for phase === 'ob-prologue'");
+  if (!/lazy\(\s*\(\)\s*=>\s*import\(\s*['"]\.\/screens\/onboard\/Prologue\.tsx['"]\s*\)/.test(src)) fails.push('App.tsx does not lazy-load Prologue from ./screens/onboard/Prologue.tsx (React.lazy, plan section 7)');
+  checked++;
+  if (/^import\s+\{[^}]*\bPrologue\b[^}]*\}\s+from\s+['"]\.\/screens\/onboard\/Prologue\.tsx['"]/m.test(src)) fails.push('App.tsx still imports Prologue statically, which defeats the lazy chunk');
+  checked++;
+  if (!/<Suspense\b[\s\S]{0,200}<Prologue\b/.test(src)) fails.push('App.tsx does not wrap <Prologue /> in <Suspense>');
+  if (!/gs\.phase === 'ob-prologue'[\s\S]{0,200}<Prologue\b/.test(src)) fails.push("App.tsx does not render <Prologue /> for phase === 'ob-prologue'");
   if (!/<Prologue\s+onDone=\{\s*choice\s*=>\s*setGs\(\s*toObCity\(\s*gs\s*,\s*choice\s*\)\s*\)/.test(src)) {
     fails.push('App.tsx: <Prologue onDone> no longer calls setGs(toObCity(gs, choice))');
   }
-  console.log('  App.tsx imports and renders the real Prologue for ob-prologue, with onDone wired to toObCity(gs, choice), and no longer mentions ObPrologueScreen');
+  console.log('  App.tsx lazy-loads (Suspense) and renders the real Prologue for ob-prologue, with onDone wired to toObCity(gs, choice), and no longer mentions ObPrologueScreen');
+}
+
+/* ===================== 6b: MEDIA — EVERY SHOWN FRAME HAS A REAL STILL ===================== */
+{
+  const shown = new Set<ShotId>();
+  for (const id of PROLOGUE_STEP_IDS) for (const sh of PROLOGUE_STEPS[id].shots) shown.add(sh as ShotId);
+  shown.add('s11-city');    // ObCity's backdrop
+  shown.add('s12-loyal');   // ObArrive
+  const toFile = (url: string) => 'public/' + url.replace(/^.*?\/onboard\//, 'onboard/');
+  let total = 0;
+  for (const id of shown) {
+    const s = SHOTS[id];
+    checked++;
+    if (!s.image) { fails.push(`${id} is shown but has no still: a dark empty frame (Itzik: every frame gets an image)`); continue; }
+    for (const [url, cap, kind] of [[s.image, 150 * 1024, /\.v\d+\.webp$/], ...(s.video ? [[s.video, 600 * 1024, /\.v\d+\.mp4$/]] : [])] as [string, number, RegExp][]) {
+      checked += 3;
+      if (!/\/onboard\//.test(url) || !kind.test(url)) fails.push(`${id}: ${url} is not a versioned public/onboard/ file`);
+      const file = toFile(url);
+      if (!existsSync(file)) { fails.push(`${id}: ${file} does not exist`); continue; }
+      const size = statSync(file).size; total += size;
+      if (size > cap) fails.push(`${id}: ${file} is ${Math.round(size / 1024)}KB, over the ${cap / 1024}KB mobile budget`);
+    }
+  }
+  checked++;
+  if (!SHOTS['s08-phone'].video) fails.push('s08-phone (the old owner\'s call) has no video');
+  const pro = readFileSync('src/ui/screens/onboard/Prologue.tsx', 'utf8');
+  for (const line of ['וזה ה-5. איזה בושות! הקבוצה מתפרקת.', 'לכיוון היציע של היריבה', 'אל תחזור לחדר ההלבשה. אתה מפוטר.']) {
+    checked++;
+    if (!pro.includes(line)) fails.push(`Prologue.tsx is missing Itzik's line: ${line}`);
+  }
+  checked++;
+  if (/בשופט|על השופט|לעבר השופט/.test(pro)) fails.push('Prologue.tsx aims the bottle at the referee');
+  console.log(`  ${shown.size} shown shots all have a versioned still under public/onboard/ within budget (s08 also a clip); prologue media total ${Math.round(total / 1024)}KB; Itzik's lines present`);
 }
 
 /* ===================== 7: SABOTAGE — SIMULATED, TWO MODES ===================== */
@@ -193,6 +236,6 @@ if (fails.length) {
   console.log('\n  ' + fails.slice(0, 30).join('\n  '));
   console.log('\nFAIL');
 } else {
-  console.log(`OK, the prologue state machine reaches city by every path (bench, bottle, skip from anywhere), the branches never cross, every shot resolves in the manifest against the plan's own ${PLAN_SHOT_IDS.length} ids, the choice survives toObCity into quickStart, the ob_* milestones are well formed, and App.tsx wires in the real screen`);
+  console.log(`OK, the prologue state machine reaches city by every path (bench, bottle, skip from anywhere), the branches never cross, every shot resolves in the manifest against the plan's own ${PLAN_SHOT_IDS.length} ids, the choice survives toObCity into quickStart, the ob_* milestones are well formed, and App.tsx lazy-loads the real screen, and every shown frame has its own budgeted still`);
 }
 process.exit(fails.length ? 1 : 0);
