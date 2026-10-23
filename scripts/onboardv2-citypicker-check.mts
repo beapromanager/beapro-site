@@ -114,6 +114,13 @@ let checked = 0;
   if (!/gs\.phase === 'ob-city'[\s\S]{0,80}ObCityScreen/.test(src)) {
     fails.push("App.tsx does not render ObCityScreen for phase === 'ob-city'");
   }
+  // The confirm button must actually run quickStart (and the prologue button toObCity), not just render.
+  if (!/ObCityScreen\s+onDone=\{\s*\(\s*city\s*,\s*name\s*\)\s*=>\s*setGs\(\s*quickStart\(\s*gs\s*,\s*city\s*,/.test(src)) {
+    fails.push('App.tsx: ObCityScreen onDone no longer calls setGs(quickStart(gs, city, ...))');
+  }
+  if (!/ObPrologueScreen\s+onNext=\{\s*\(\)\s*=>\s*setGs\(\s*toObCity\(\s*gs\s*\)\s*\)/.test(src)) {
+    fails.push('App.tsx: ObPrologueScreen onNext no longer calls setGs(toObCity(gs))');
+  }
   if (src.includes('עדיין אין מסך אמיתי')) {
     fails.push('App.tsx still contains the T1 placeholder text "עדיין אין מסך אמיתי" — the real screens were not wired in its place');
   }
