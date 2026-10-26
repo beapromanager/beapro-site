@@ -26,7 +26,7 @@ import { BRANDS, type BrandId } from '../data/sponsors.ts';
 const KEY = 'beapro.career.v1';
 const VERSION = 1;
 
-interface Envelope {
+export interface Envelope {
   version: number;
   savedAt: number;
   state: GameState;
@@ -54,13 +54,21 @@ export function saveCareer(state: GameState): void {
   }
 }
 
-function readEnvelope(): Envelope | null {
+/** the one rule for "is this text a career this build can open", shared with the transfer between the two addresses */
+export function parseEnvelope(raw: string | null | undefined): Envelope | null {
   try {
-    const raw = localStorage.getItem(KEY);
     if (!raw) return null;
     const env = JSON.parse(raw) as Envelope;
     if (env?.version !== VERSION || !env.state?.clubId) return null;
     return env;
+  } catch {
+    return null;
+  }
+}
+
+function readEnvelope(): Envelope | null {
+  try {
+    return parseEnvelope(localStorage.getItem(KEY));
   } catch {
     return null;
   }
@@ -292,7 +300,11 @@ export function loadCareer(): GameState | null {
 }
 
 export function savedSummary(): SaveSummary | null {
-  const env = readEnvelope();
+  return summaryOf(readEnvelope());
+}
+
+/** the title screen's few words about a career, from an envelope already read */
+export function summaryOf(env: Envelope | null): SaveSummary | null {
   if (!env) return null;
   const s = env.state;
   const club = s.league.clubs.find(c => c.id === s.clubId);

@@ -56,7 +56,10 @@ import { setInviteHandler, setInstallHandler, setReportHandler } from './compone
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
-import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, cupMark, giftMark, dailyMark, STEP_ORDER } from '../game/telemetry.ts';
+import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, cupMark, giftMark, dailyMark, xferMark, STEP_ORDER } from '../game/telemetry.ts';
+import { TransferGate } from './components/TransferUi.tsx';
+import { peekArrival, markEntered, tellArrival } from './transferWire.ts';
+import { currentRole } from '../game/transfer.ts';
 import { AdminScreen } from './screens/Admin.tsx';
 import type { Stats as AdminStats } from './screens/Admin.tsx';
 import { TELEMETRY_URL } from '../data/telemetry.ts';
@@ -78,15 +81,31 @@ const BACK_TO_HUB = new Set<G.Phase>([
   'squad', 'youth', 'stadium', 'coach', 'packs', 'captain', 'assistant', 'scout', 'euro-bracket', 'cup-bracket',
 ]);
 
+/**
+ * The game, and above it the one page that is not the game: a window the old address opened with ?xfer= to hand a career
+ * over (components/TransferUi.tsx). It is a sheet on top, so the game underneath is the game on either address.
+ */
 export function App() {
+  return (
+    <>
+      <TransferGate />
+      <AppInner />
+    </>
+  );
+}
+
+function AppInner() {
+  // A career that has just been handed over from the old address is walked into, not offered on the title screen
+  const [arrived] = useState<G.GameState | null>(() => peekArrival());
   // The cold open is for a stranger. A manager with a career on this phone has seen it, so he goes straight to the
   // title screen, which is alive on its own (Itzik, 12.10: the film for the first visit, the living picture for everyone).
+  // (a career that has just arrived from the other address is a saved career, so this already skips the cold open for it)
   const [introDone, setIntroDone] = useState(() => savedSummary() !== null);
-  const [booted, setBooted] = useState(false);            // still on the title screen
+  const [booted, setBooted] = useState(arrived !== null);            // still on the title screen
   // the daily gift: the table open, and the celebration of the gift just taken (the reveal of a pack waits for it)
   const [dailyOpen, setDailyOpen] = useState(false);
   const [dailyWow, setDailyWow] = useState<{ reward: DailyReward; streak: number; gold: boolean } | null>(null);
-  const [gs, setGs] = useState<G.GameState>(() => G.newGame());
+  const [gs, setGs] = useState<G.GameState>(() => arrived ?? G.newGame());
   const [squadFromHub, setSquadFromHub] = useState(false);
   const [saved, setSaved] = useState<SaveSummary | null>(() => savedSummary());
   const [fromPreseason, setFromPreseason] = useState(false);   // market opened from the summer board
@@ -149,6 +168,15 @@ export function App() {
 
   // persist the career whenever it changes, so closing the tab is not a loss
   useEffect(() => { if (booted) saveCareer(gs); }, [gs, booted]);
+
+  // The move to the new address: the arrival is marked as walked into, a sitting there is counted, and the way the
+  // career came is told once. All of it is nothing at the old address and nothing on a developer's machine.
+  useEffect(() => { if (arrived) markEntered(); }, [arrived]);
+  useEffect(() => {
+    if (adminKey) return;
+    if (currentRole() === 'new') xferMark('site_new');
+  }, [adminKey]);
+  useEffect(() => { if (booted && !adminKey) tellArrival(); }, [booted, adminKey]);
 
   /**
    * The phone's back button, wired to whatever "back" means on this screen.

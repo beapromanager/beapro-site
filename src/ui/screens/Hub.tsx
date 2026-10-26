@@ -25,6 +25,7 @@ import { DailyHubCard } from './DailyGift.tsx';
 import { AcademyHubCard } from './Academy.tsx';
 import { YOUTH_V2 } from '../../game/academy.ts';
 import { SCOUT_LIVE, SCOUT_TEXT } from '../../game/scout.ts';
+import { TransferBanner } from '../components/TransferUi.tsx';
 
 /**
  * The home screen.
@@ -99,6 +100,9 @@ export function Hub({ gs, onStart, onSquad, onTransfers, onChronicle, onCaptain,
         </div>
 
         <GoalStrip gs={gs} goal={goal} onPress={onTable} />
+
+        {/* the move to beapro.co.il, on the old address only, and never on a night that has to be played first */}
+        {!night && !pensDue && !cupBlocking && <TransferBanner where="hub" />}
 
         <div ref={hero}>
           {drawDue && <EuroDrawCard onGo={onEuroDraw} />}

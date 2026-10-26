@@ -81,7 +81,9 @@
     "check:teaser": "node --experimental-strip-types scripts/teaser-check.mts",
     "check:loyal": "node --experimental-strip-types scripts/loyal-check.mts",
     "check:share": "node --experimental-strip-types scripts/share-check.mts",
-    "check:daily": "node --experimental-strip-types scripts/daily-check.mts"
+    "check:daily": "node --experimental-strip-types scripts/daily-check.mts",
+    "check:transfer": "node --experimental-strip-types scripts/transfer-check.mts",
+    "check:transfer-ui": "node --experimental-strip-types scripts/transfer-ui.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

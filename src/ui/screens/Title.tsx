@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon.tsx';
 import { useEffect, useRef, useState } from 'react';
 import { watchInstall, isInstalled } from '../install.ts';
 import { LeagueTeaser } from '../components/LeagueTeaser.tsx';
+import { TransferBanner } from '../components/TransferUi.tsx';
 
 /**
  * Entry screen, the tunnel (Itzik's pick of five on 12.10).
@@ -104,6 +105,9 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall }: {
 
           {/* the neighbourhood league's date, until the day it opens; nothing to press */}
           <LeagueTeaser />
+
+          {/* the move to beapro.co.il: the offer on the old address, "ייבוא קריירה" on the new one, nothing anywhere else */}
+          <TransferBanner where="title" />
 
           {/* The install belongs HERE, before a career, not buried in the game.
               Shown whatever the device says: the sheet knows the right route for

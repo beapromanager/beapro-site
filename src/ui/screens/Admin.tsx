@@ -190,6 +190,24 @@ export function AdminScreen({ stats: data }: { stats: Stats }) {
               </div>
             </>
           )}
+          {data.reach.xfer && data.reach.xfer.length > 0 && (
+            <>
+              <div className="label-cap">העברה לדומיין</div>
+              <div className="tile" style={{ padding: '11px 12px' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700 }}>
+                  <span className="num">{data.reach.xfer.find(x => x.step === 'xfer_offer')?.n ?? 0}</span> ראו הצעה
+                  <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                  <span className="num">{data.reach.xfer.find(x => x.step === 'xfer_sent')?.n ?? 0}</span> נשלחו
+                  <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                  <span className="num" style={{ color: 'var(--gold-hi)' }}>{data.reach.xfer.find(x => x.step === 'xfer_in')?.n ?? 0}</span> הגיעו
+                  <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                  <span className="num">{data.reach.xfer.find(x => x.step === 'xfer_code')?.n ?? 0}</span> בקוד או בקובץ
+                  <span style={{ color: 'var(--ink-faint)' }}> · </span>
+                  <span className="num">{data.reach.xfer.find(x => x.step === 'site_new')?.n ?? 0}</span> ישבו באתר החדש
+                </span>
+              </div>
+            </>
+          )}
           <p className="hint">
             נספר מרגע שהמדידה עלתה, ומי שממשיך קריירה ישנה נספר בפעם הבאה שהוא פותח את המשחק.
           </p>
@@ -253,6 +271,8 @@ export type Stats = {
     share?: { n: number }[];
     /** the daily gift's three marks, absent from a worker that does not count them yet */
     daily?: { step: string; n: number }[];
+    /** the move to beapro.co.il, absent from a worker that does not count it yet */
+    xfer?: { step: string; n: number }[];
   };
 };
 
