@@ -108,6 +108,7 @@ async function newWorld(opts = {}) {
     if (url.pathname === '/__blank') return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><meta charset="utf-8"><title>blank</title>' });
     if ([EVIL, LOOK, LOOKOLD].includes(origin)) return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<!doctype html><meta charset="utf-8"><title>other</title>' });
     if (url.pathname === '/xfer.json') {
+      if (st.markerDelay) await new Promise(r => setTimeout(r, st.markerDelay));
       if (origin !== NEW && origin !== WWW) return route.fulfill({ status: 404, body: 'no' });
       if (!st.marker) return route.fulfill({ status: 404, body: 'no' });
     }
@@ -192,26 +193,49 @@ const clickTransfer = async page => {
   await w.ctx.close();
 }
 
-/* ------------------------------------------------------------------ the hub: a slim card, once a sitting */
+/* ------------------------------------------------------------------ the hub card, and "later" is a day */
 {
-  const w = await newWorld();
+  // the new address answers a few seconds late, so the player is already in the hub when the offer arrives there
+  const w = await newWorld({ markerDelay: 3500 });
   const old = await seededOld(w);
-  await old.getByRole('dialog', { name: 'העברת הקריירה לאתר החדש' }).waitFor({ timeout: 20000 });
-  // "later" on the title screen closes the sheet and leaves the title as it always was
-  await old.getByRole('button', { name: 'אחר כך' }).click();
-  await old.getByRole('dialog', { name: 'העברת הקריירה לאתר החדש' }).waitFor({ state: 'detached' });
-  claim(await old.getByRole('button', { name: 'המשך קריירה' }).isVisible(), 'the continue button is not reachable after "later"');
   await old.getByRole('button', { name: 'המשך קריירה' }).click();
   await old.getByText(A.club).first().waitFor({ timeout: 30000 });
   const card = old.locator('.xf-card.hub');
-  await card.waitFor({ timeout: 10000 });
+  await card.waitFor({ timeout: 15000 });
   claim((await card.locator('.xf-text').innerText()).trim() === PROMPT, 'the hub card does not say the same words');
   await noSideways(old, 'the hub with the card');
   await shot(old, 'h1-offer-in-the-hub');
   await card.getByRole('button', { name: 'אחר כך' }).click();
   await card.waitFor({ state: 'detached' });
-  claim(await old.locator('.xf-card.hub').count() === 0, 'the hub card stayed after "later"');
+  const at = JSON.parse((await dump(old))['beapro.xfer.v1'] ?? '{}').dismissedAt;
+  claim(typeof at === 'number' && Math.abs(Date.now() - at) < 60000, '"later" is not written down with the time');
+  // a new visit within the day: neither the sheet on the title screen nor the card in the hub
+  await old.reload();
+  await old.waitForTimeout(6500);
+  claim(await old.getByRole('dialog', { name: 'העברת הקריירה לאתר החדש' }).count() === 0, 'the sheet came back on the next visit, inside the day');
+  await old.getByRole('button', { name: 'המשך קריירה' }).click();
+  await old.getByText(A.club).first().waitFor({ timeout: 30000 });
+  await old.waitForTimeout(1500);
+  claim(await old.locator('.xf-card.hub').count() === 0, 'the hub card came back on the next visit, inside the day');
+  // a day and an hour later it is offered again
+  await old.evaluate(() => { const k = 'beapro.xfer.v1'; const o = JSON.parse(localStorage.getItem(k) ?? '{}'); o.dismissedAt = Date.now() - 25 * 3600 * 1000; localStorage.setItem(k, JSON.stringify(o)); });
+  await old.reload();
+  await old.getByRole('dialog', { name: 'העברת הקריירה לאתר החדש' }).waitFor({ timeout: 20000 });
+  claim(await old.getByRole('dialog', { name: 'העברת הקריירה לאתר החדש' }).isVisible(), 'the offer did not come back a day and an hour later');
   await w.ctx.close();
+
+  // "later" on the title screen covers the hub as well
+  const w2 = await newWorld();
+  const old2 = await seededOld(w2);
+  await old2.getByRole('dialog', { name: 'העברת הקריירה לאתר החדש' }).waitFor({ timeout: 20000 });
+  await old2.getByRole('button', { name: 'אחר כך' }).click();
+  await old2.getByRole('dialog', { name: 'העברת הקריירה לאתר החדש' }).waitFor({ state: 'detached' });
+  claim(await old2.getByRole('button', { name: 'המשך קריירה' }).isVisible(), 'the continue button is not reachable after "later"');
+  await old2.getByRole('button', { name: 'המשך קריירה' }).click();
+  await old2.getByText(A.club).first().waitFor({ timeout: 30000 });
+  await old2.waitForTimeout(1500);
+  claim(await old2.locator('.xf-card.hub').count() === 0, 'the hub card showed right after "later" on the title screen');
+  await w2.ctx.close();
 }
 
 /* ------------------------------------------------------------------ b. no marker, no offer */
@@ -258,6 +282,38 @@ const clickTransfer = async page => {
   claim(careerOf(now['beapro.career.v1']).clubId === careerOf(A.career).clubId && now['beapro.device'] === A.device, 'a yes did not replace the career');
   const backup = JSON.parse(now['beapro.xfer.backup'] ?? 'null');
   claim(backup?.items?.['beapro.career.v1'] === B.career && backup?.items?.['beapro.device'] === B.device, 'the backup is not the career that was replaced');
+
+  // the way back: "שחזור מהגיבוי" on the title screen of the new address, asked first, and it is a swap
+  await popup2.close();
+  const back = await w2.ctx.newPage();
+  await back.goto(NEW + '/');
+  await back.getByRole('button', { name: 'שחזור מהגיבוי' }).waitFor({ timeout: 30000 });
+  const wm3 = await back.locator('.title-wm').boundingBox();
+  claim(!!wm3 && wm3.y >= 0, `the two links push the wordmark off the top of a 360x740 phone (y ${wm3?.y})`);
+  await noSideways(back, 'the title screen of the new address with both links');
+  await back.getByRole('button', { name: 'שחזור מהגיבוי' }).click();
+  await back.getByText('לשחזר את הקריירה שהייתה כאן לפני ההעברה?').waitFor();
+  const q = await back.locator('.sheet').innerText();
+  claim(q.includes(A.club) && q.includes(B.club), 'the restore question does not show both careers');
+  await back.waitForTimeout(800);
+  await shot(back, 'r1-the-restore-question');
+  await back.getByRole('button', { name: 'לא, להשאיר את מה שיש כאן' }).click();
+  await back.getByText('לשחזר את הקריירה שהייתה כאן לפני ההעברה?').waitFor({ state: 'detached' });
+  const stayed = await dump(back);
+  claim(careerOf(stayed['beapro.career.v1']).clubId === careerOf(A.career).clubId && stayed['beapro.device'] === A.device, 'a no to the restore changed the career');
+  await back.getByRole('button', { name: 'שחזור מהגיבוי' }).click();
+  await back.getByRole('button', { name: 'כן, לשחזר' }).click();
+  await back.waitForFunction(id => { try { return JSON.parse(localStorage.getItem('beapro.career.v1')).state.clubId === id; } catch { return false; } }, careerOf(B.career).clubId, { timeout: 20000 });
+  await back.waitForLoadState('load');
+  const restored = await dump(back);
+  claim(restored['beapro.career.v1'] === B.career && restored['beapro.device'] === B.device && restored['beapro.aid'] === B.aid, 'the restore did not put back the career that was replaced, byte for byte');
+  const swapped = JSON.parse(restored['beapro.xfer.backup'] ?? 'null');
+  claim(swapped?.items?.['beapro.career.v1'] && careerOf(swapped.items['beapro.career.v1']).clubId === careerOf(A.career).clubId, 'after the restore the backup is not the career that was undone');
+  // the same button undoes it
+  await back.getByRole('button', { name: 'שחזור מהגיבוי' }).click();
+  await back.getByRole('button', { name: 'כן, לשחזר' }).click();
+  await back.waitForFunction(id => { try { return JSON.parse(localStorage.getItem('beapro.career.v1')).state.clubId === id; } catch { return false; } }, careerOf(A.career).clubId, { timeout: 20000 });
+  claim((await dump(back))['beapro.device'] === A.device, 'the second press did not bring the transferred career back');
   await w2.ctx.close();
 }
 
@@ -341,6 +397,7 @@ let fileCode = null, textCode = null;
     const page = await w2.ctx.newPage();
     await page.goto(NEW + '/');
     await page.getByRole('button', { name: 'ייבוא קריירה' }).waitFor({ timeout: 30000 });
+    claim(await page.getByRole('button', { name: 'שחזור מהגיבוי' }).count() === 0, 'a way back is offered where nothing was ever replaced');
     await page.getByRole('button', { name: 'ייבוא קריירה' }).click();
     await page.getByText('הדבק את הקוד, או בחר את הקובץ ששמרת מהאתר הישן.').waitFor();
     await noSideways(page, 'the import sheet');

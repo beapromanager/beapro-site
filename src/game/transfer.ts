@@ -19,7 +19,8 @@ import { parseEnvelope, summaryOf, type SaveSummary } from './save.ts';
 
 /* ------------------------------------------------------------------ the two addresses */
 
-export const OLD_ORIGIN = 'https://beapromanager.github.io';
+import { OLD_ORIGIN, STATUS_KEY, movedAway, weekendFrozen } from './transferLock.ts';
+export { OLD_ORIGIN, STATUS_KEY };
 export const NEW_ORIGINS: readonly string[] = ['https://beapro.co.il', 'https://www.beapro.co.il'];
 /** where the transfer opens: the apex, and www redirects to it */
 export const TARGET_ORIGIN = 'https://beapro.co.il';
@@ -50,7 +51,7 @@ export function currentRole(): Role {
 /* ------------------------------------------------------------------ what moves, what stays */
 
 export const CAREER_KEY = 'beapro.career.v1';
-export const STATUS_KEY = 'beapro.xfer.v1';       // old origin: what it offered and sent
+// STATUS_KEY ('beapro.xfer.v1', old origin: what it offered and sent) lives in transferLock.ts
 export const IN_KEY = 'beapro.xfer.in';           // new origin: what arrived
 export const BACKUP_KEY = 'beapro.xfer.backup';   // new origin: what was there before, one slot
 
@@ -155,7 +156,7 @@ export interface Payload {
   sha: string;
 }
 
-export type Reason = 'format' | 'version' | 'sha' | 'nocareer' | 'size' | 'quota' | 'declined' | 'invalid';
+export type Reason = 'format' | 'version' | 'sha' | 'nocareer' | 'size' | 'quota' | 'declined' | 'invalid' | 'nothing';
 
 /** what the player is told, in Hebrew, for each reason a transfer did not happen */
 export const REASON_TEXT: Record<Reason, string> = {
@@ -167,6 +168,7 @@ export const REASON_TEXT: Record<Reason, string> = {
   quota: 'אין בדפדפן מקום לשמור את הקריירה. שום דבר לא השתנה.',
   declined: 'ההעברה בוטלה. שום דבר לא השתנה.',
   invalid: 'ההעברה נכשלה. שום דבר לא השתנה.',
+  nothing: 'אין גיבוי לשחזר.',
 };
 
 /** the payload of THIS origin's store: whatever of the moved keys exists, as raw strings, untouched */
@@ -220,6 +222,7 @@ export function validatePayload(raw: unknown): Validated {
 
 export type Question =
   | { kind: 'replace'; current: SaveSummary; incoming: SaveSummary }
+  | { kind: 'restore'; current: SaveSummary | null; backup: SaveSummary }
   | { kind: 'nobackup' };
 export type Confirm = (q: Question) => boolean | Promise<boolean>;
 export type Applied = { ok: true; sha: string; replaced: boolean } | { ok: false; reason: Reason };
@@ -275,6 +278,67 @@ export async function applyTransfer(store: KV, payload: Payload, confirm: Confir
   return { ok: true, sha: v.payload.sha, replaced: !!current };
 }
 
+/* ------------------------------------------------------------------ taking it back */
+
+export interface Backup { at: number; items: Record<string, string | null> }
+
+/** the one slot a transfer (or a restore) leaves, if it is whole: only the moved keys, each a string or an absent key */
+export function readBackup(store: KV): Backup | null {
+  try {
+    const o = JSON.parse(store.getItem(BACKUP_KEY) ?? 'null') as Backup | null;
+    if (!o || typeof o.at !== 'number' || !o.items || typeof o.items !== 'object' || Array.isArray(o.items)) return null;
+    for (const [k, v] of Object.entries(o.items)) if (!TRANSFER_KEYS.includes(k) || (v !== null && typeof v !== 'string')) return null;
+    return o;
+  } catch { return null; }
+}
+
+/** the career in the backup, if it holds one a build can open: without one there is nothing to take back */
+export function backupCareer(store: KV): SaveSummary | null {
+  const b = readBackup(store);
+  return b ? summaryOf(parseEnvelope(b.items[CAREER_KEY])) : null;
+}
+
+export type Restored = { ok: true; replaced: boolean } | { ok: false; reason: Reason };
+
+/**
+ * Take back what a transfer replaced. It is a swap, not a deletion: what is here now becomes the backup, so the same
+ * button undoes it. Asked first, always; written all or nothing, exactly like the transfer itself.
+ */
+export async function applyRestore(store: KV, confirm: Confirm, now: number = Date.now()): Promise<Restored> {
+  const b = readBackup(store);
+  const backup = b ? summaryOf(parseEnvelope(b.items[CAREER_KEY])) : null;
+  if (!b || !backup) return { ok: false, reason: 'nothing' };
+  const current = currentCareer(store);
+  const yes = await confirm({ kind: 'restore', current, backup });
+  if (yes !== true) return { ok: false, reason: 'declined' };
+  const keys = Object.keys(b.items);
+  const before: Record<string, string | null> = {};
+  for (const k of keys) before[k] = store.getItem(k);
+  const backupBefore = store.getItem(BACKUP_KEY);
+  try {
+    store.setItem(BACKUP_KEY, JSON.stringify({ at: now, items: before }));
+  } catch {
+    const go = await confirm({ kind: 'nobackup' });
+    if (go !== true) return { ok: false, reason: 'declined' };
+  }
+  const undo = () => {
+    for (const k of keys) {
+      try { if (before[k] === null) store.removeItem(k); else store.setItem(k, before[k] as string); } catch { /* it was there before */ }
+    }
+    try { if (backupBefore === null) store.removeItem(BACKUP_KEY); else store.setItem(BACKUP_KEY, backupBefore); } catch { /* same */ }
+  };
+  try {
+    for (const k of keys) {
+      const v = b.items[k];
+      if (v === null) store.removeItem(k); else store.setItem(k, v);
+    }
+  } catch {
+    undo();
+    return { ok: false, reason: 'quota' };
+  }
+  return { ok: true, replaced: !!current };
+}
+
 /** what the last transfer into this origin left, and whether the screens and the counting have caught up with it */
 export interface Arrival { at: number; from: string; sha: string; via: 'auto' | 'code'; told: boolean; entered: boolean }
 export function readArrival(store: KV): Arrival | null {
@@ -301,6 +365,23 @@ export function readStatus(store: KV): Status {
 export function patchStatus(store: KV, patch: Status): void {
   try { store.setItem(STATUS_KEY, JSON.stringify({ ...readStatus(store), ...patch })); } catch { /* a note, not the career */ }
 }
+
+/** "later" hides the offer for a day: on the title screen and in the hub, and across visits, because it is written down */
+export const SNOOZE_MS = 24 * 60 * 60 * 1000;
+export function snoozed(s: Status, now: number): boolean {
+  const d = s.dismissedAt;
+  return typeof d === 'number' && Number.isFinite(d) && now - d >= 0 && now - d < SNOOZE_MS;
+}
+
+/**
+ * How long the two addresses run side by side before the domain is attached to the original one (phase 2), counted from
+ * the day https://beapro.co.il/xfer.json first answers: thirty days (Itzik, 26.10). The code does not end anything by
+ * itself when it is over: phase 2 is a decision, and DEPLOY.md says what to look at before taking it.
+ */
+export const GRACE_DAYS = 30;
+
+// movedAway() and weekendFrozen(): "this address already handed its career over", kept in transferLock.ts (see there)
+export { movedAway, weekendFrozen };
 
 /* ------------------------------------------------------------------ the messages between the two windows */
 

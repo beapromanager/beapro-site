@@ -4,7 +4,7 @@
  */
 import {
   TRANSFER_OFFER, RECEIVER_URL, PROBE_TIMEOUT_MS, NONCE_RE, browserStore, createSender, createReceiver, currentRole,
-  readArrival, patchArrival, readStatus, patchStatus, currentCareer,
+  readArrival, patchArrival, readStatus, patchStatus, currentCareer, snoozed,
   type SenderState, type ReceiverState, type Confirm,
 } from '../game/transfer.ts';
 import { loadCareer } from '../game/save.ts';
@@ -84,12 +84,10 @@ export function countOffer(): void {
   patchStatus(store, { offeredAt: Date.now() });
   xferMark('xfer_offer');
 }
-/** "later": for the rest of this sitting, once for the title screen and once for the hub */
-const putOff = { title: false, hub: false };
+/** "later": a day, on the title screen and in the hub alike, written down so a new visit keeps it (Itzik, 26.10) */
 const putOffListeners = new Set<() => void>();
-export const isPutOff = (where: 'title' | 'hub'): boolean => putOff[where];
-export function putOffNow(where: 'title' | 'hub'): void {
-  putOff[where] = true;
+export const isPutOff = (): boolean => snoozed(readStatus(store), Date.now());
+export function putOffNow(): void {
   patchStatus(store, { dismissedAt: Date.now() });
   putOffListeners.forEach(f => f());
 }

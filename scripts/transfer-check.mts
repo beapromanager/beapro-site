@@ -21,10 +21,11 @@ import { createHash } from 'node:crypto';
 import * as G from '../src/game/state.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
 import { DEFAULT_FORMATION } from '../src/data/formations.ts';
-import { saveCareer, loadCareer } from '../src/game/save.ts';
+import { saveCareer, loadCareer, savedSummary } from '../src/game/save.ts';
 import { myCode } from '../src/game/invite.ts';
 import { deviceId as countingId, MILESTONE, XFER_MARKS } from '../src/game/telemetry.ts';
 import * as T from '../src/game/transfer.ts';
+import { weekendFrozen, movedAway } from '../src/game/transferLock.ts';
 
 const fails: string[] = [];
 let checked = 0;
@@ -139,7 +140,7 @@ function oldAddress(): M {
   for (const k of [...moved, ...left]) claim(/^beapro\.[a-z0-9.]+$/.test(k), `${k} is not a well formed key`);
   for (const k of ['beapro.career.v1', 'beapro.device', 'beapro.aid', 'beapro.tq']) claim(found.has(k), `the game no longer uses ${k}; the lists are stale`);
   // the places that touch the browser's storage are the ones known and read: a new one has to be looked at
-  const known = new Set(['game/save.ts', 'game/invite.ts', 'game/telemetry.ts', 'game/weekend.ts', 'game/weekendGuide.ts', 'game/transfer.ts']);
+  const known = new Set(['game/save.ts', 'game/invite.ts', 'game/telemetry.ts', 'game/weekend.ts', 'game/weekendGuide.ts', 'game/transfer.ts', 'game/transferLock.ts']);
   for (const u of users) claim(known.has(u), `${u} uses browser storage and is not among the files the transfer was built around`);
   claim(T.TRANSFER_KEYS.join() === 'beapro.career.v1,beapro.device,beapro.aid,beapro.weekend.v1,beapro.weekend.intro', 'the moved keys changed');
   claim(T.SKIP_KEYS.includes('beapro.tq'), 'the counting queue is not left behind');
@@ -426,8 +427,10 @@ let measured = { careerChars: 0, codeChars: 0, codeKB: 0, fileChars: 0 };
   claim(r2.state.phase === 'done', `the walk: the receiver ended in ${r2.state.phase}`);
   const ack = oldWin.posts.shift();
   claim(ack?.to === T.OLD_ORIGIN && (ack.msg as { step: string }).step === 'ack', 'the walk: the receiver did not acknowledge to the old origin');
+  claim(!movedAway(kv(oldM2)) && !weekendFrozen(T.OLD_ORIGIN, kv(oldM2)), 'the walk: the old address was frozen before the new one acknowledged');
   s2.handle({ origin: NEW, source: popup2, data: ack?.msg });
   claim(s2.state.phase === 'done' && !!T.readStatus(kv(oldM2)).sentAt && tellings.join() === 'xfer_sent', 'the walk: the old address did not note that it was sent');
+  claim(movedAway(kv(oldM2)) && weekendFrozen(T.OLD_ORIGIN, kv(oldM2)) && !weekendFrozen(NEW, kv(oldM2)), 'the walk: once acknowledged, the old address (and only it) is frozen for the weekend league');
   claim(newM2.get('beapro.career.v1') === oldM2.get('beapro.career.v1'), 'the walk: the career is not the same');
   const diff = [...oldM2.keys()].filter(k => oldM2.get(k) !== new Map<string, string>(JSON.parse(oldFrozen)).get(k));
   claim(diff.join() === T.STATUS_KEY, `the walk: the old address changed ${diff.join()}, it may only note ${T.STATUS_KEY}`);
@@ -505,6 +508,145 @@ let measured = { careerChars: 0, codeChars: 0, codeKB: 0, fileChars: 0 };
   claim(loadCareer() !== null, 'the old career does not open after all of it');
 }
 
+/* ------------------------------------------------------------------ k. taking it back */
+{
+  const oldM = oldAddress();
+  const payload = T.buildPayload(kv(oldM), 1, 't');
+  const target: M = new Map();
+  useStore(target);
+  saveCareer(longCareer(31, 2).gs);
+  target.set('beapro.device', 'device-here');
+  target.set('beapro.aid', 'aid-here');
+  const hereSummary = savedSummary();
+  const hereCareer = target.get('beapro.career.v1') as string;
+  const incomingClub = T.validatePayload(payload).ok ? (T.validatePayload(payload) as { career: { clubName: string } }).career.clubName : '';
+  const only = (m: M) => JSON.stringify(T.TRANSFER_KEYS.map(k => [k, m.get(k) ?? null]));
+
+  // nothing to take back before anything was transferred
+  const none = await T.applyRestore(kv(target), () => { throw new Error('asked with nothing to restore'); });
+  claim(!none.ok && none.reason === 'nothing' && T.backupCareer(kv(target)) === null, 'a restore with no backup did not say there is nothing');
+
+  const before = only(target);
+  await T.applyTransfer(kv(target), payload, () => true, 10);
+  const moved = only(target);
+  claim(moved !== before, 'the transfer changed nothing, the rest proves nothing');
+  claim(T.backupCareer(kv(target))?.clubName === hereSummary?.clubName, 'the backup does not show the career that was replaced');
+
+  // asked first, and the answer no (or none) leaves every byte
+  const frozen = snap(target);
+  const asked: T.Question[] = [];
+  const no = await T.applyRestore(kv(target), q => { asked.push(q); return false; }, 20);
+  claim(!no.ok && no.reason === 'declined' && snap(target) === frozen, 'a no to the restore changed the store');
+  claim(asked.length === 1 && asked[0].kind === 'restore' && asked[0].current?.clubName === incomingClub && asked[0].backup.clubName === hereSummary?.clubName, 'the restore question does not show both careers');
+  const silent = await T.applyRestore(kv(target), () => undefined as unknown as boolean, 20);
+  claim(!silent.ok && snap(target) === frozen, 'no answer counted as a yes to the restore');
+
+  // a yes puts back what was replaced, byte for byte, and what was here becomes the backup (so it can be undone)
+  const yes = await T.applyRestore(kv(target), () => true, 21);
+  claim(yes.ok && only(target) === before, 'the restore did not put back every key as it was');
+  claim(target.get('beapro.career.v1') === hereCareer && target.get('beapro.device') === 'device-here' && !target.has('beapro.weekend.v1'), 'the restored career, device or weekend key is wrong');
+  claim(T.backupCareer(kv(target))?.clubName === incomingClub, 'after a restore the backup does not hold the career that was undone');
+  claim((T.readBackup(kv(target)) as T.Backup).at === 21, 'the backup after a restore does not carry its own time');
+  const undone = await T.applyRestore(kv(target), () => true, 22);
+  claim(undone.ok && only(target) === moved, 'pressing it again did not bring the transferred career back');
+
+  // a write that fails halfway puts every key back, backup included
+  // (a key that was absent is removed, not written, so it is not a write that can fail)
+  const writes = 1 + Object.values((T.readBackup(kv(target)) as T.Backup).items).filter(v => v !== null).length;
+  for (let n = 2; n <= writes; n++) {
+    const m: M = new Map(JSON.parse(snap(target)));
+    const s0 = snap(m);
+    const r = await T.applyRestore(throwsOn(m, n), () => true, 30);
+    claim(!r.ok && r.reason === 'quota' && snap(m) === s0, `write ${n} of the restore failed and the store is not as it was`);
+  }
+  // a backup that cannot be written is asked about, and a no stops it
+  const tight: M = new Map(JSON.parse(snap(target)));
+  const size = [...tight.entries()].reduce((n, [k, v]) => n + k.length + v.length, 0);
+  const asked2: string[] = [];
+  const nb = await T.applyRestore(capped(tight, size + 5), q => { asked2.push(q.kind); return q.kind === 'restore'; }, 31);
+  claim(!nb.ok && asked2.includes('nobackup') && snap(tight) === snap(target), 'a restore that could not keep a backup went on without asking');
+
+  // a backup that is not a whole one is not a backup
+  const odd = (items: unknown) => { const m: M = new Map([['beapro.xfer.backup', JSON.stringify({ at: 1, items })]]); return m; };
+  for (const [name, items] of [['no career in it', { 'beapro.device': 'x' }], ['a key that is not ours', { 'beapro.career.v1': hereCareer, 'beapro.tq': '[]' }], ['a value that is not text', { 'beapro.career.v1': 5 }], ['a career that cannot be opened', { 'beapro.career.v1': '{}' }], ['an array', [hereCareer]]] as [string, unknown][]) {
+    const m = odd(items);
+    m.set('beapro.career.v1', 'unchanged');
+    const r = await T.applyRestore(kv(m), () => { throw new Error('asked about ' + name); });
+    claim(!r.ok && r.reason === 'nothing' && m.get('beapro.career.v1') === 'unchanged' && T.backupCareer(kv(m)) === null, `a backup with ${name} was restored`);
+  }
+  // an old address never has one to offer: it never writes it
+  claim(T.backupCareer(kv(oldAddress())) === null, 'the old address has a backup it never made');
+}
+
+/* ------------------------------------------------------------------ l. "later" is a day */
+{
+  const NOW = 1_800_000_000_000, D = T.SNOOZE_MS;
+  claim(D === 86_400_000, `"later" is ${D} ms, not a day`);
+  claim(!T.snoozed({}, NOW), 'an offer never put off is hidden');
+  claim(T.snoozed({ dismissedAt: NOW }, NOW) && T.snoozed({ dismissedAt: NOW - 1000 }, NOW) && T.snoozed({ dismissedAt: NOW - (D - 1) }, NOW), 'an offer put off a moment ago is shown');
+  claim(!T.snoozed({ dismissedAt: NOW - D }, NOW) && !T.snoozed({ dismissedAt: NOW - D - 1 }, NOW) && !T.snoozed({ dismissedAt: NOW - 3 * D }, NOW), 'an offer put off a day ago stays hidden');
+  claim(!T.snoozed({ dismissedAt: NOW + 5000 }, NOW) && !T.snoozed({ dismissedAt: NaN }, NOW) && !T.snoozed({ dismissedAt: '1' as unknown as number }, NOW), 'a clock in the future or junk hides the offer');
+  // written down, so a new visit sees it, and it touches nothing but its own note
+  const m: M = oldAddress();
+  const career = m.get('beapro.career.v1');
+  T.patchStatus(kv(m), { dismissedAt: NOW });
+  claim(T.snoozed(T.readStatus(kv(m)), NOW + 1000) && !T.snoozed(T.readStatus(kv(m)), NOW + D + 1) && m.get('beapro.career.v1') === career, '"later" is not written to the old address\'s own note');
+  const wire = readFileSync('src/ui/transferWire.ts', 'utf8');
+  claim(/snoozed\(readStatus\(store\), Date\.now\(\)\)/.test(wire) && /export function putOffNow\(\): void \{\s*patchStatus\(store, \{ dismissedAt: Date\.now\(\) \}\);/.test(wire), 'the screens do not put the offer off through the written note');
+  claim(!/putOff\[/.test(wire), 'the offer is still put off for a sitting only');
+}
+
+/* ------------------------------------------------------------------ m. the grace period, and one weekend league per person */
+{
+  claim(T.GRACE_DAYS === 30, `the grace period is ${T.GRACE_DAYS} days`);
+  const deploy = readFileSync('DEPLOY.md', 'utf8');
+  claim(/30 יום/.test(deploy) && /תקופת חסד/.test(deploy), 'DEPLOY.md does not say how long the two addresses run side by side');
+
+  // frozen means: the old address, after the acknowledgement, and nothing else
+  const s: M = new Map();
+  claim(!movedAway(kv(s)) && !weekendFrozen(T.OLD_ORIGIN, kv(s)), 'an address that sent nothing is frozen');
+  T.patchStatus(kv(s), { offeredAt: 1, dismissedAt: 2 });
+  claim(!movedAway(kv(s)) && !weekendFrozen(T.OLD_ORIGIN, kv(s)), 'an address that only made an offer is frozen');
+  T.patchStatus(kv(s), { sentAt: 5, to: T.TARGET_ORIGIN, sha: 'x' });
+  claim(movedAway(kv(s)) && weekendFrozen(T.OLD_ORIGIN, kv(s)), 'an address that handed its career over is not frozen');
+  for (const o of [T.TARGET_ORIGIN, 'https://www.beapro.co.il', 'https://evil.example', 'https://beapromanager.github.io.evil.com', 'http://beapromanager.github.io', '']) claim(!weekendFrozen(o, kv(s)), `"${o}" is frozen`);
+  s.set('beapro.xfer.v1', 'not json');
+  claim(!movedAway(kv(s)) && !weekendFrozen(T.OLD_ORIGIN, kv(s)), 'a damaged note freezes the address');
+  s.set('beapro.xfer.v1', JSON.stringify({ sentAt: 'yesterday' }));
+  claim(!movedAway(kv(s)), 'a note that is not a time freezes the address');
+
+  // the person is the same person on both addresses: same device, same counting id, the league and the prizes taken come along
+  const oldM = oldAddress();
+  const withWeekend = JSON.parse(oldM.get('beapro.career.v1') as string);
+  withWeekend.state.weekend = { applied: ['n-1', 'n-2'], titles: 1 };
+  oldM.set('beapro.career.v1', JSON.stringify(withWeekend));
+  const league = JSON.stringify({ leagueId: 'L-1', final: 99, nick: 'מאמן', pendingPrize: { nonce: 'n-3', sig: 's' }, prizeTier: { '2026-11': 1 } });
+  oldM.set('beapro.weekend.v1', league);
+  const p = T.buildPayload(kv(oldM), 1, 't');
+  const target: M = new Map();
+  useStore(target);
+  claim((await T.applyTransfer(kv(target), p, () => true)).ok, 'the career with a league did not move');
+  claim(target.get('beapro.weekend.v1') === league, 'the league this device is in did not move, so the new address would sign it up again');
+  claim(target.get('beapro.aid') === oldM.get('beapro.aid') && target.get('beapro.device') === oldM.get('beapro.device'), 'the weekend identity (the counting id) is not the same on both addresses');
+  const after = loadCareer() as unknown as { weekend?: { applied: string[]; titles: number } };
+  claim(JSON.stringify(after?.weekend?.applied) === '["n-1","n-2"]' && after?.weekend?.titles === 1, 'the prizes already taken (by nonce) did not come along, so they could be taken twice');
+  // the same prize token cannot be taken twice by the careers either, because the second is told by its own list
+  claim((after?.weekend?.applied ?? []).includes('n-1') && (after?.weekend?.applied ?? []).includes('n-2') && !(after?.weekend?.applied ?? []).includes('n-3'), 'the list of taken prizes is wrong after the move');
+
+  // a tripwire: when the weekend league is merged, it has to ask before it opens a door or redeems a prize
+  const lock = readFileSync('src/game/transferLock.ts', 'utf8');
+  claim(!/^import /m.test(lock), 'transferLock.ts imports something: the weekend code and the state could not use it without a circle');
+  if (existsSync('src/game/weekend.ts')) {
+    const wk = readFileSync('src/game/weekend.ts', 'utf8');
+    const api = /async function api<[\s\S]*?\n}\n/.exec(wk)?.[0] ?? '';
+    claim(/weekendFrozen\(/.test(api), 'the weekend client opens its doors on an address that already handed its career over');
+  }
+  const st = readFileSync('src/game/state.ts', 'utf8');
+  if (/export function applyWeekendPrize/.test(st)) {
+    claim(/weekendFrozen\(/.test(st), 'a weekend prize can be redeemed on an address that already handed its career over');
+  }
+}
+
 /* ------------------------------------------------------------------ j. the game does not know which address it is on */
 {
   // one build is served at both addresses, so nothing but the transfer may name either of them
@@ -514,7 +656,7 @@ let measured = { careerChars: 0, codeChars: 0, codeKB: 0, fileChars: 0 };
   });
   for (const f of walk('src')) {
     // the transfer's own logic, and the words its screens say (the new address is spelled out in the question the player is asked)
-    if (f === 'src/game/transfer.ts' || f === 'src/ui/components/TransferUi.tsx') continue;
+    if (f === 'src/game/transfer.ts' || f === 'src/game/transferLock.ts' || f === 'src/ui/components/TransferUi.tsx') continue;
     const code = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
     claim(!/beapromanager\.github\.io|beapro\.co\.il/.test(code), `${f} names one of the two addresses, so it would be wrong on the other`);
   }

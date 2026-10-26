@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Portal } from './Portal.tsx';
 import {
   TARGET_ORIGIN, CODE_SOFT_LIMIT, READY_TIMEOUT_MS, REASON_TEXT, currentRole, buildPayload, encodeCode, fileNameFor, fileText,
-  parseImportText, applyTransfer, currentCareer,
+  parseImportText, applyTransfer, applyRestore, backupCareer, currentCareer,
   type Question, type ReceiverState, type SenderState, type Reason,
 } from '../../game/transfer.ts';
 import type { SaveSummary } from '../../game/save.ts';
@@ -43,6 +43,15 @@ function AskSheet({ q, onAnswer }: { q: Question; onAnswer: (yes: boolean) => vo
               <p className="hint" style={{ margin: 0 }}>הקריירה שיש כאן עכשיו תישמר בגיבוי, לשחזור אם תתחרט.</p>
               <button className="btn dark" autoFocus onClick={() => onAnswer(false)}>לא, להשאיר את מה שיש כאן</button>
               <button className="btn" onClick={() => onAnswer(true)}>כן, להחליף</button>
+            </div>
+          ) : q.kind === 'restore' ? (
+            <div className="stack" style={{ gap: 10 }}>
+              <div className="h2" style={{ fontSize: 20 }}>לשחזר את הקריירה שהייתה כאן לפני ההעברה?</div>
+              {q.current && <CareerLine label="הקריירה שיש כאן עכשיו" s={q.current} />}
+              <CareerLine label="הקריירה מהגיבוי" s={q.backup} />
+              <p className="hint" style={{ margin: 0 }}>{q.current ? 'מה שיש כאן עכשיו יישמר בגיבוי, ואותו כפתור מחזיר אותו.' : 'אין כאן עכשיו קריירה.'}</p>
+              <button className="btn dark" autoFocus onClick={() => onAnswer(false)}>לא, להשאיר את מה שיש כאן</button>
+              <button className="btn" onClick={() => onAnswer(true)}>כן, לשחזר</button>
             </div>
           ) : (
             <div className="stack" style={{ gap: 10 }}>
@@ -255,9 +264,9 @@ function useSenderState(): SenderState {
   useEffect(() => onSender(setS), []);
   return s;
 }
-function usePutOff(where: Where): boolean {
-  const [p, setP] = useState(() => isPutOff(where));
-  useEffect(() => onPutOff(() => setP(isPutOff(where))), [where]);
+function usePutOff(): boolean {
+  const [p, setP] = useState(isPutOff);
+  useEffect(() => onPutOff(() => setP(isPutOff())), []);
   return p;
 }
 
@@ -275,8 +284,10 @@ export function TransferBanner({ where }: { where: Where }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [doneSeen, setDoneSeen] = useState(false);
+  const [restoreErr, setRestoreErr] = useState<Reason | null>(null);
+  const { ask, sheet: askSheet } = useAsk();
   const s = useSenderState();
-  const off = usePutOff(where);
+  const off = usePutOff();
   const have = role === 'old' && savedSummary() !== null;
   const sent = !!sentStatus().sentAt || s.phase === 'done';
   // the move was made from this very page a moment ago: say so once, with the way to the new address
@@ -293,10 +304,23 @@ export function TransferBanner({ where }: { where: Where }) {
 
   if (role === 'new') {
     if (where !== 'title') return null;
+    // what a transfer replaced is still here, one slot: the way back is offered only while there is a career in it
+    const hasBackup = backupCareer(transferStore) !== null;
+    const restore = async () => {
+      setRestoreErr(null);
+      const r = await applyRestore(transferStore, ask);
+      if (r.ok) location.reload();
+      else if (r.reason !== 'declined') setRestoreErr(r.reason);
+    };
     return (
       <>
-        <button className="xf-link" onClick={() => setImportOpen(true)}>ייבוא קריירה</button>
+        <div className="xf-links">
+          <button className="xf-link" onClick={() => setImportOpen(true)}>ייבוא קריירה</button>
+          {hasBackup && <button className="xf-link" onClick={restore}>שחזור מהגיבוי</button>}
+        </div>
+        {restoreErr && <p className="xf-err" role="alert">{REASON_TEXT[restoreErr]}</p>}
         {importOpen && <ImportSheet onClose={() => setImportOpen(false)} />}
+        {askSheet}
       </>
     );
   }
@@ -313,7 +337,7 @@ export function TransferBanner({ where }: { where: Where }) {
   if (!fresh && (off || (!showOffer && s.phase === 'idle'))) return null;
 
   const go = () => { if (isStandalone()) setExportOpen(true); else sendNow(); };
-  const close = () => putOffNow(where);
+  const close = () => putOffNow();
   const body = (
     <>
       {fresh && (
