@@ -4,8 +4,10 @@
  *   1. no mail anywhere: no email field, no mail box, no "אפשר להסיר בכל רגע", nothing sent to the server, nothing
  *      stored by it; a lobby written by an earlier build loses its mails at the first request
  *   2. consent: all three registration screens carry the box, unticked from the start, and their button waits for
- *      it; the box names the terms and the privacy policy and says nothing of age; the server refuses a
- *      registration without the current version (all three doors), so a client cannot skip it by not drawing it
+ *      it; the box names the terms and the privacy policy; the server refuses a registration without the current
+ *      version (all three doors), so a client cannot skip it by not drawing it
+ *      16 and up (Itzik, 31.10): all three screens also carry the age box with the agreed sentence, unticked from the
+ *      start, its own box, and the button waits for it too; both documents say 16 and up; LEGAL_VERSION is 2026-10-31
  *   3. the league's name goes through the nickname filter
  *   4. deletion: a finished match deletes itself a week later (squads, team names, device ids), the lobby sweeps
  *      itself, and the wording in the game says what is true
@@ -83,7 +85,23 @@ function fakeEnv() {
   claim((screens.match(/consent: LEGAL_VERSION/g) ?? []).length === 3, 'a registration does not send the consent version');
   claim(/קראתי ואני מסכים\/ה ל/.test(sheet) && /תנאי השימוש/.test(sheet) && /מדיניות הפרטיות/.test(sheet), 'the consent sentence is not the agreed one');
   const regs = screens.slice(screens.indexOf('function CreateLeague'), screens.indexOf('function Lobby'));
-  claim(!/גיל|בן 18|מעל 18|ילד|קטין|הורה/.test(sheet + regs), 'the registration screens or the consent box talk about age');
+  // 16 and up (Itzik, 31.10): the age is its own box, unticked, on all three doors, and the button waits for it
+  claim(sheet.includes("export const AGE_DECLARATION = 'אני מצהיר/ה שאני בן/בת 16 ומעלה'"), 'the age sentence is not the agreed one');
+  const consentFn = sheet.slice(sheet.indexOf('export function ConsentBox'), sheet.indexOf('/** the sentence a person ticks for their age'));
+  claim(sheet.includes('export function AgeBox') && !/16|גיל/.test(consentFn), 'the age is not its own box');
+  claim((regs.match(/<AgeBox checked=\{age16\} onChange=\{setAge16\} \/>/g) ?? []).length === 3, 'not all three registration screens carry the age box');
+  claim((regs.match(/const \[age16, setAge16\] = useState\(false\)/g) ?? []).length === 3, 'the age box is not false from the start on all three screens');
+  claim((regs.match(/disabled=\{busy \|\| !ok \|\| !age16 \|\|/g) ?? []).length === 3, 'a registration button does not wait for the age box');
+  claim(W.LEGAL_VERSION === '2026-10-31', `LEGAL_VERSION is ${W.LEGAL_VERSION}, not the 16-and-up version 2026-10-31`);
+  {
+    const legalTxt = read('src/data/legalText.ts');
+    const terms = legalTxt.slice(legalTxt.indexOf('export const TERMS'));
+    const privacy = legalTxt.slice(0, legalTxt.indexOf('export const TERMS'));
+    claim(/ליגת השכונה מיועדת לבני 16 ומעלה/.test(privacy) && /ליגת השכונה מיועדת לבני 16 ומעלה/.test(terms), 'the privacy policy or the terms do not say 16 and up');
+    claim(!/אין הגבלת גיל/.test(legalTxt), 'the policy still says there is no age limit');
+    claim(/נתוני הליגה נמחקים 7 ימים אחרי הגמר/.test(privacy) && /עד 12 חודשים/.test(privacy), 'the short retention line is missing');
+    claim(/Cloudflare[^"]*גיבויים/.test(privacy), 'the policy says nothing of the backups Cloudflare keeps');
+  }
   claim(!/defaultChecked|useState\(true\)/.test(sheet), 'the consent box is ticked by default');
 
   const t0 = openTime();

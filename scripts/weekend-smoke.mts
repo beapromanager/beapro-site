@@ -24,7 +24,7 @@ let OFFSET = Date.UTC(2026, 10, 10, 10, 0) - Date.now();
 const now = () => Date.now() + OFFSET;
 const setNow = (t: number) => { OFFSET = t - Date.now(); };
 async function api<T>(path: string, b?: unknown, at = now()): Promise<{ ok: boolean; status: number; data: T }> {
-  const res = await fetch(BASE + path, { method: b === undefined ? 'GET' : 'POST', body: b === undefined ? undefined : JSON.stringify(/^\/league(\/join|\/open)?$/.test(path) ? { consent: '2026-10-29', ...(b as object) } : b), headers: { 'content-type': 'application/json', 'x-now': String(at) } });
+  const res = await fetch(BASE + path, { method: b === undefined ? 'GET' : 'POST', body: b === undefined ? undefined : JSON.stringify(/^\/league(\/join|\/open)?$/.test(path) ? { consent: '2026-10-31', ...(b as object) } : b), headers: { 'content-type': 'application/json', 'x-now': String(at) } });
   let data: T; try { data = await res.json() as T; } catch { data = {} as T; }
   return { ok: res.ok, status: res.status, data };
 }

@@ -65,13 +65,28 @@ export function LegalLinks({ open, className }: { open: (k: LegalKind) => void; 
   );
 }
 
-/** the box in front of a registration: never ticked from the start, no word about age */
+/** the box in front of a registration: never ticked from the start; the age is its own box (AgeBox) */
 export function ConsentBox({ checked, onChange, open }: { checked: boolean; onChange: (v: boolean) => void; open: (k: LegalKind) => void }) {
   return (
     <div className="lg-consent">
       <label>
         <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} data-consent="1" />
         <span>קראתי ואני מסכים/ה ל<button type="button" className="lg-a" onClick={() => open('terms')}>תנאי השימוש</button> ול<button type="button" className="lg-a" onClick={() => open('privacy')}>מדיניות הפרטיות</button></span>
+      </label>
+    </div>
+  );
+}
+
+/** the sentence a person ticks for their age (Itzik, 31.10: the weekend league is 16 and up) */
+export const AGE_DECLARATION = 'אני מצהיר/ה שאני בן/בת 16 ומעלה';
+
+/** the age declaration in front of a registration: its own box, never ticked from the start (Itzik, 31.10) */
+export function AgeBox({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="lg-consent">
+      <label>
+        <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} data-age="16" />
+        <span>{AGE_DECLARATION}</span>
       </label>
     </div>
   );

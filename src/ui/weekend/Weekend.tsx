@@ -21,7 +21,7 @@ import { overall } from '../../engine/matchEngine.ts';
 import type { Player } from '../../engine/matchEngine.ts';
 import { asset } from '../asset.ts';
 import { Icon } from '../components/Icon.tsx';
-import { LegalSheet, LegalLinks, ConsentBox, type LegalKind } from '../components/LegalSheet.tsx';
+import { LegalSheet, LegalLinks, ConsentBox, AgeBox, type LegalKind } from '../components/LegalSheet.tsx';
 import { LEGAL_VERSION } from '../../game/legal.ts';
 import { WeekendMatch } from './WeekendMatch.tsx';
 import './weekend.css';
@@ -230,6 +230,7 @@ function CreateLeague({ onMade }: { onMade: (id: string) => void }) {
   const [size, setSize] = useState(8);
   const [slots, setSlots] = useState<string[]>([]);
   const [ok, setOk] = useState(false);
+  const [age16, setAge16] = useState(false);
   const [legal, setLegal] = useState<LegalKind | null>(null);
   const need = slotsNeeded(size);
   const problem = slotsProblem(size, slots);
@@ -278,9 +279,10 @@ function CreateLeague({ onMade }: { onMade: (id: string) => void }) {
         <b>{problem ?? 'הלוח מלא. אפשר לפתוח.'}</b>
         <div className="wk-muted">אם יגיעו פחות ממה שתכננת, הלוח מתכווץ לבד מהסוף. פחות משישה בחמישי 17:00, הליגה לא יוצאת לדרך.</div>
       </div>
+      <AgeBox checked={age16} onChange={setAge16} />
       <ConsentBox checked={ok} onChange={setOk} open={setLegal} />
       {err && <p className="wk-err">{err}</p>}
-      <button className="wk-btn red" disabled={busy || !ok || !!problem || name.trim().length < 2 || nick.trim().length < 2} onClick={run}>{busy ? 'פותח…' : 'לפתוח את הליגה'}</button>
+      <button className="wk-btn red" disabled={busy || !ok || !age16 || !!problem || name.trim().length < 2 || nick.trim().length < 2} onClick={run}>{busy ? 'פותח…' : 'לפתוח את הליגה'}</button>
       {legal && <LegalSheet kind={legal} onClose={() => setLegal(null)} />}
     </div>
   );
@@ -290,6 +292,7 @@ function JoinLeague({ onJoined }: { onJoined: (id: string) => void }) {
   const [code, setCode] = useState('');
   const [nick, setNick] = useState(local().nick);
   const [ok, setOk] = useState(false);
+  const [age16, setAge16] = useState(false);
   const [legal, setLegal] = useState<LegalKind | null>(null);
   const { busy, err, run } = useSubmit(
     () => WeekendApi.join({ nick, code: code.trim().toUpperCase(), consent: LEGAL_VERSION }),
@@ -307,9 +310,10 @@ function JoinLeague({ onJoined }: { onJoined: (id: string) => void }) {
         <label className="wk-label" htmlFor="wk-nick2">הכינוי שלך בליגה</label>
         <input id="wk-nick2" className="wk-input" value={nick} onChange={e => setNick(e.target.value)} maxLength={12} placeholder="דודו" />
       </div>
+      <AgeBox checked={age16} onChange={setAge16} />
       <ConsentBox checked={ok} onChange={setOk} open={setLegal} />
       {err && <p className="wk-err">{err}</p>}
-      <button className="wk-btn red" disabled={busy || !ok || code.trim().length !== 6 || nick.trim().length < 2} onClick={run}>{busy ? 'נכנס…' : 'להיכנס'}</button>
+      <button className="wk-btn red" disabled={busy || !ok || !age16 || code.trim().length !== 6 || nick.trim().length < 2} onClick={run}>{busy ? 'נכנס…' : 'להיכנס'}</button>
       {legal && <LegalSheet kind={legal} onClose={() => setLegal(null)} />}
     </div>
   );
@@ -318,6 +322,7 @@ function JoinLeague({ onJoined }: { onJoined: (id: string) => void }) {
 function OpenJoin({ onJoined }: { onJoined: (id: string) => void }) {
   const [nick, setNick] = useState(local().nick);
   const [ok, setOk] = useState(false);
+  const [age16, setAge16] = useState(false);
   const [legal, setLegal] = useState<LegalKind | null>(null);
   const { busy, err, run } = useSubmit(
     () => WeekendApi.open({ nick, consent: LEGAL_VERSION }),
@@ -332,9 +337,10 @@ function OpenJoin({ onJoined }: { onJoined: (id: string) => void }) {
         <label className="wk-label" htmlFor="wk-nick3">הכינוי שלך בליגה</label>
         <input id="wk-nick3" className="wk-input" value={nick} onChange={e => setNick(e.target.value)} maxLength={12} placeholder="הכינוי" />
       </div>
+      <AgeBox checked={age16} onChange={setAge16} />
       <ConsentBox checked={ok} onChange={setOk} open={setLegal} />
       {err && <p className="wk-err">{err}</p>}
-      <button className="wk-btn red" disabled={busy || !ok || nick.trim().length < 2} onClick={run}>{busy ? 'נכנס…' : 'לליגה הפתוחה'}</button>
+      <button className="wk-btn red" disabled={busy || !ok || !age16 || nick.trim().length < 2} onClick={run}>{busy ? 'נכנס…' : 'לליגה הפתוחה'}</button>
       {legal && <LegalSheet kind={legal} onClose={() => setLegal(null)} />}
     </div>
   );

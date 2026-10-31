@@ -243,8 +243,10 @@ const BAD_WORDS = ['זונה', 'שרמוטה', 'מניאק', 'בן זונה', '�
 /**
  * The version of the terms of use and the privacy policy a person ticks before joining (Itzik, 27.10). The server
  * refuses a registration that does not carry it, so a client without the tick cannot get in.
+ * 2026-10-31: the weekend league is 16 and up (Itzik, 31.10); the new client ticks the age box too. The weekend worker
+ * imports this value, so the site and the beapro-weekend worker must go out together.
  */
-export const LEGAL_VERSION = '2026-10-29';
+export const LEGAL_VERSION = '2026-10-31';
 
 /** the league's name goes through the same filter as a nickname (27.10) */
 export function nameProblem(name: string): string | null {

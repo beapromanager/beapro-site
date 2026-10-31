@@ -6,7 +6,7 @@ const BASE = process.env.DUEL_URL ?? 'http://127.0.0.1:8788';
 const [, , cmd, arg, nowArg, extra] = process.argv;
 const now = Number(nowArg ?? Date.now());
 async function api(path: string, b?: unknown) {
-  const res = await fetch(BASE + path, { method: b === undefined ? 'GET' : 'POST', body: b === undefined ? undefined : JSON.stringify(/^\/league(\/join|\/open)?$/.test(path) ? { consent: '2026-10-29', ...(b as object) } : b), headers: { 'content-type': 'application/json', 'x-now': String(now) } });
+  const res = await fetch(BASE + path, { method: b === undefined ? 'GET' : 'POST', body: b === undefined ? undefined : JSON.stringify(/^\/league(\/join|\/open)?$/.test(path) ? { consent: '2026-10-31', ...(b as object) } : b), headers: { 'content-type': 'application/json', 'x-now': String(now) } });
   return { ok: res.ok, data: await res.json().catch(() => ({})) };
 }
 const nicks = ['דודו', 'רועי', 'יוסי', 'מוטי', 'אבי', 'עמית', 'ניר', 'גל', 'שי', 'עומר', 'בן'];
