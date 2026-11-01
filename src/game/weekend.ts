@@ -18,7 +18,7 @@ import { deviceId } from './telemetry.ts';
 import type { Player } from '../engine/matchEngine.ts';
 import type { SimpleTactic } from './liveMatch.ts';
 
-export const WEEKEND_LIVE = false;
+export const WEEKEND_LIVE = true;
 /** the weekend server: the same workers.dev subdomain as the counting house. The door stays shut while WEEKEND_LIVE is false, whatever this is */
 const WEEKEND_URL_PROD = 'https://beapro-weekend.beapromanager.workers.dev';
 function devDoor(): boolean {

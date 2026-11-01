@@ -75,7 +75,7 @@ const telemetry = readFileSync('src/data/telemetry.ts', 'utf8');
   const count = telemetry.match(/TELEMETRY_URL: string = 'https:\/\/beapro-count\.([a-z0-9.-]+)'/)?.[1] ?? '';
   claim(count === 'beapromanager.workers.dev', `the counting house's subdomain reads ${count}`);
   claim(prod === `https://beapro-weekend.${count}`, `WEEKEND_URL_PROD is ${prod}, wanted https://beapro-weekend.${count}`);
-  claim(/export const WEEKEND_LIVE = false;/.test(client), 'the door is open (WEEKEND_LIVE is not false): this change must not open it');
+  claim(/export const WEEKEND_LIVE = true;/.test(client), 'the door is shut (WEEKEND_LIVE is not true): the league went live on 1.11 (Itzik), the clock gate on LAUNCH_AT still holds it until Monday 2.11 20:00');
   claim(/url !== '' && live && now >= LAUNCH_AT/.test(client), 'the clock gate no longer needs the flag and the address');
 }
 

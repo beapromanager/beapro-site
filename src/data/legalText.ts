@@ -6,7 +6,7 @@
  * 31.10: the weekend league is 16 and up (Itzik): the age clause in both documents, a short line on how long league data
  * and the rest are kept, and the backups Cloudflare keeps on its own.
  *
- * A "[[להשלים: ...]]" marker is a decision still open; there is none now (the two retention periods were set by Itzik on 29.10:
+ * An open-decision marker (double square brackets, the word להשלים, a colon) is a decision still open; there is none now (the two retention periods were set by Itzik on 29.10:
  * the statistics and the champions count are kept twelve months and then deleted on their own, see RETAIN_MS in
  * worker/src/index.ts and CHAMPIONS_KEEP_MS in src/game/weekendCore.ts). check:legal fails if WEEKEND_LIVE is true while
  * any marker is in the text, and holds the text and the code to the same twelve months.
