@@ -23,7 +23,7 @@
  *   7. the back button: 'ob-friends' is in back-check's PROTECTED list
  *   8. the words are Itzik's own, and the yes still is a registered, shown shot
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import * as G from '../src/game/state.ts';
 import { newGameV2, quickStart, answerFriends, addStoryFriends, STORY_FIRST_NAMES } from '../src/game/onboardV2.ts';
 import { simulateMatch } from '../src/engine/matchEngine.ts';
@@ -223,9 +223,12 @@ console.log(`  ${samples} quick-started careers: no friends in match 1, the scen
   const shots = readFileSync(new URL('../src/ui/onboard/shots.ts', import.meta.url), 'utf8');
   checked++;
   if (!/'s13-friends-join':\s*\{[^}]*s13-friends-join\.v\d+\.webp/.test(shots)) fails.push('s13-friends-join is not registered with a versioned webp');
-  const arrive = readFileSync(new URL('../src/ui/screens/onboard/ObArrive.tsx', import.meta.url), 'utf8');
-  checked++;
-  if (/לא נשארו שם בלעדיך/.test(arrive)) fails.push('ObArrive still says the two followed him down');
+  // 2.11 (Itzik): the two players at the gate before match 1 are gone; the friends appear only after it
+  const city = readFileSync(new URL('../src/ui/screens/ObCity.tsx', import.meta.url), 'utf8');
+  checked += 3;
+  if (existsSync(new URL('../src/ui/screens/onboard/ObArrive.tsx', import.meta.url))) fails.push('ObArrive.tsx (the two at the gate before match 1) is back');
+  if (/ObArriveScreen|onboard\/ObArrive|'s12-loyal'/.test(city) || /'s12-loyal'/.test(shots)) fails.push('the city picker or shots.ts still reach for the cut s12-loyal arrival beat');
+  if (!/obMark\('ob_city'\);[\s\S]{0,120}onDone\(selected, name\)/.test(city)) fails.push('confirming a city no longer goes straight on to quickStart');
   console.log(`  every line of Itzik's script is on the screen, and the yes still is registered`);
 }
 

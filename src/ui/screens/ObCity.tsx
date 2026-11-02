@@ -3,45 +3,37 @@
  * T1 placeholder. No sponsor, no kit choice here — the real OnboardClub
  * screen (Onboard.tsx) stays the old flow's own; this is the quick path
  * from the prologue's own 'city' hand-off straight into quickStart
- * (onboardV2.ts), with one short beat (ObArrive.tsx, shot s12-loyal)
- * between confirming a city and actually calling it.
+ * (onboardV2.ts). Confirming a city goes straight to the first match's
+ * build-up: the arrival beat that used to sit here (ObArrive, shot
+ * s12-loyal, two players at the gate) was cut 2.11 at Itzik's word, the two
+ * friends now appear only after match 1 (ObFriends).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CITIES } from '../../data/cities.ts';
 import { Icon } from '../components/Icon.tsx';
-import { SHOTS, preloadShots } from '../onboard/shots.ts';
+import { SHOTS } from '../onboard/shots.ts';
 import { obMark } from '../../game/telemetry.ts';
-import { ObArriveScreen } from './onboard/ObArrive.tsx';
 
 /**
  * Pick a city from the full list (same CITIES the rest of the game reads,
  * so this check and the UI never disagree about what is on screen), type an
- * optional name, confirm, one arrival beat (ObArrive), and go
- * straight to quickStart.
+ * optional name, confirm, and go straight to quickStart.
  */
 export function ObCityScreen({ onDone }: { onDone: (city: string, name: string) => void }) {
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [arrived, setArrived] = useState(false);
 
   const list = useMemo(() => {
     const s = q.trim();
     return s ? CITIES.filter(c => c.name.includes(s)) : CITIES;
   }, [q]);
 
-  // the next beat after the pick is ObArrive (s12-loyal): warm only that one (plan section 7)
-  useEffect(() => { preloadShots(['s12-loyal']); }, []);
-
   function confirm() {
     if (!selected) return;
     obMark('ob_city');
     if (name.trim()) obMark('ob_named_self');
-    setArrived(true);
-  }
-
-  if (arrived && selected) {
-    return <ObArriveScreen onContinue={() => onDone(selected, name)} />;
+    onDone(selected, name);
   }
 
   const bgShot = SHOTS['s11-city'];

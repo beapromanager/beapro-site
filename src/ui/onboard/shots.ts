@@ -17,7 +17,7 @@ export type ShotId =
   | 's01-stadium' | 's02-bench' | 's03-goal5' | 's04-down'
   | 's05a-sit' | 's05b-bottle' | 's06-red' | 's07-tunnel'
   | 's08-phone' | 's09-morning' | 's10-pitch-gimel' | 's11-city'
-  | 's12-loyal' | 's13-kickoff' | 's13-friends-join';
+  | 's13-kickoff' | 's13-friends-join';
 
 export interface Shot {
   id: ShotId;
@@ -49,10 +49,9 @@ export const SHOTS: Readonly<Record<ShotId, Shot>> = {
   // the new squad: ~15 neighbourhood players on an old sand pitch, golden morning
   's10-pitch-gimel': { id: 's10-pitch-gimel', night: false, image: ob('s10-pitch-gimel.v1.webp') },
   's11-city': { id: 's11-city', night: false, image: ob('s11-city.v1.webp') },
-  // two players from behind with kit bags at the sand pitch's gate. Since 2.11 the friends no longer
-  // arrive here (they ask after match 1), so ObArrive's caption no longer says they followed him
-  's12-loyal': { id: 's12-loyal', night: false, image: ob('s12-loyal.v1.webp') },
-  // not shown by any screen today (the match itself follows ObArrive directly)
+  // (s12-loyal, the two players at the gate before match 1, was cut 2.11 at Itzik's word: the two
+  // friends now appear only after match 1, in ObFriends. Its file stays in public/onboard/, unused.)
+  // not shown by any screen today (the match itself follows the city picker directly)
   's13-kickoff': { id: 's13-kickoff', night: false },
   // the friends scene's yes (ObFriends, after match 1): a midfielder and a striker seen from behind,
   // walking into the shabby ליגה ג׳ dressing room, warm light. Generated 2.11, no faces, kit marks or text

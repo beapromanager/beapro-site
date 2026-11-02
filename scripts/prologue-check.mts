@@ -21,7 +21,7 @@
  *   6. static: App.tsx no longer references the removed ObPrologueScreen
  *      and renders Prologue for phase 'ob-prologue', lazy-loaded (React.lazy
  *      + Suspense, plan section 7)
- *   6b. media: every shot the prologue, the city picker and ObArrive show has
+ *   6b. media: every shot the prologue, the city picker and ObFriends show has
  *      a still (no dark empty frame), every file exists under public/onboard/
  *      with a versioned name, stills <=150KB, the clip <=600KB; Itzik's own
  *      wording for the 5th goal and the bottle kick is in Prologue.tsx
@@ -48,7 +48,8 @@ let checked = 0;
 /** the plan's own shot ids, section 6's table (5a/5b counted separately), in order */
 const PLAN_SHOT_IDS = [
   's01-stadium', 's02-bench', 's03-goal5', 's04-down', 's05a-sit', 's05b-bottle', 's06-red',
-  's07-tunnel', 's08-phone', 's09-morning', 's10-pitch-gimel', 's11-city', 's12-loyal', 's13-kickoff',
+  's07-tunnel', 's08-phone', 's09-morning', 's10-pitch-gimel', 's11-city', 's13-kickoff',
+  // s12-loyal (ObArrive, the two at the gate before match 1) was cut 2.11 at Itzik's word
   // added 2.11 (Itzik): the friends scene's yes, יוסי and דוד walking into the dressing room
   's13-friends-join',
 ];
@@ -179,7 +180,6 @@ const PLAN_SHOT_IDS = [
   const shown = new Set<ShotId>();
   for (const id of PROLOGUE_STEP_IDS) for (const sh of PROLOGUE_STEPS[id].shots) shown.add(sh as ShotId);
   shown.add('s11-city');    // ObCity's backdrop
-  shown.add('s12-loyal');   // ObArrive
   shown.add('s13-friends-join');   // ObFriends, the yes branch
   const toFile = (url: string) => 'public/' + url.replace(/^.*?\/onboard\//, 'onboard/');
   let total = 0;
