@@ -11,6 +11,7 @@
 
 import type { PressContext, PressQuestion, Outlet } from './press.ts';
 import { pickPressQuestion, fresh } from './press.ts';
+import { PRESS_TIERS, inTier } from './leagueGate.ts';
 import type { Rng } from '../engine/matchEngine.ts';
 import type { FactKind, MatchFact } from './matchFacts.ts';
 
@@ -480,7 +481,14 @@ export function pickPressQuestions(
     ...BY_FACT[f.kind]!.map(g => (cc: PressContext) => ({ ...g(cc, f), who: f.who })),
     ...(FACT_EXTRA[f.kind] ?? []).filter(x => !x.when || x.when(c, f)).map(x => (cc: PressContext) => ({ ...x.gen(cc, f), who: f.who })),
   ];
-  const unheard = (f: MatchFact) => pools(f).some(g => !recent.includes(g(c).id));
+  // read the pool the way fresh() will: a question gated out of this division
+  // is not something left to ask, or a lead story whose only unheard line is a
+  // top-flight one would be picked and then asked again anyway
+  const unheard = (f: MatchFact) => {
+    const ids = pools(f).map(g => g(c).id);
+    const kept = ids.filter(id => inTier(PRESS_TIERS, id, c.tier));
+    return (kept.length ? kept : ids).some(id => !recent.includes(id));
+  };
   let pick = usable[rng() > 0.72 && usable.length > 1 ? 1 : 0];
   if (!unheard(pick)) pick = usable.find(unheard) ?? pick;
   return { outlet: wide.outlet, qs: [fresh(pools(pick), c, rng, recent), wide.q] };
