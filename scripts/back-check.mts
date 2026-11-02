@@ -85,7 +85,9 @@ const back = readFileSync('src/ui/back.ts', 'utf8');
 {
   const PROTECTED = ['match', 'press', 'dilemma', 'tactic', 'result',
     'season-end', 'sacked', 'rescue', 'kit', 'sponsor', 'ultimatum', 'chat',
-    'signing', 'preseason', 'preseason-market', 'youth-decision'];
+    'signing', 'preseason', 'preseason-market', 'youth-decision',
+    // the friends' question after match 1 (2.11): shown once, so a stray back must not skip it
+    'ob-friends'];
   const hStart = app.indexOf('setBackHandler(() => {');
   const handler = app.slice(hStart, app.indexOf('}, [booted', hStart));
   const hubList = /const BACK_TO_HUB = new Set<G\.Phase>\(\[([\s\S]*?)\]\)/.exec(app)?.[1] ?? '';

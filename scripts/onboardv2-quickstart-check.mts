@@ -16,7 +16,7 @@
  *      (seedContract(id) for every non-story player, STORY_CONTRACT_YEARS for
  *      the two story friends — not just "has a contract"), no dilemma,
  *      weekBlockedReason === null, sponsor null, tutorialSeen true,
- *      obV2.namesDue true, the two story friends in the starting XI, and
+ *      obV2.friendsScene "due" and nobody extra yet (since 2.11 the friends come after match 1), and
  *      money matching setArchetype('mental')'s own formula (budgetBias 1.0)
  *   2. fewer than 5 UI-level calls from a fresh newGameV2() to
  *      phase === 'match' (newGameV2, quickStart, the tactic screen's "go" to
@@ -114,10 +114,11 @@ function toMatch(gs: G.GameState): { gs: G.GameState; calls: number } {
       if (gs.phase !== 'tactic' || gs.dilemma !== null) fails.push(`${city}/${seed}: phase is "${gs.phase}" with dilemma ${JSON.stringify(gs.dilemma)}, expected tactic/no dilemma`);
       if (gs.sponsor !== null) fails.push(`${city}/${seed}: sponsor is set, expected null until after match 1`);
       if (!gs.tutorialSeen) fails.push(`${city}/${seed}: tutorialSeen is false`);
-      if (!gs.obV2?.namesDue) fails.push(`${city}/${seed}: obV2.namesDue is not true`);
-      if (gs.friends.length !== 2 || !gs.friends.every(f => sq.starters.some(p => p.id === f.id))) {
-        fails.push(`${city}/${seed}: the two story friends are not both in the starting XI`);
-      }
+      // since 2.11: nobody follows him down at the start. The names card is gone
+      // (namesDue stays false), the friends scene is due after match 1 instead
+      if (gs.obV2?.namesDue) fails.push(`${city}/${seed}: obV2.namesDue is true, the names card was dropped`);
+      if (gs.obV2?.friendsScene !== 'due') fails.push(`${city}/${seed}: obV2.friendsScene is "${gs.obV2?.friendsScene}", expected "due"`);
+      if (gs.friends.length !== 0) fails.push(`${city}/${seed}: ${gs.friends.length} friends already in the squad, expected none before the friends scene`);
       const m = getManager('mental');
       const expectedMoney = Math.round(G.START_MONEY * m.budgetBias * c.traits.budget);
       if (gs.meters.money !== expectedMoney) fails.push(`${city}/${seed}: money ${gs.meters.money}, expected ${expectedMoney} (START_MONEY * budgetBias 1.0 * club budget trait)`);
@@ -162,12 +163,13 @@ function oldFlow(city: string, seed: number): G.GameState {
     if (oldRival !== newRival) fails.push(`${city}: the local rival differs between old and V2 (${oldRival} vs ${newRival})`);
     if (oldGs.meters.money !== newGs.meters.money) fails.push(`${city}: money differs between old (${oldGs.meters.money}) and V2 (${newGs.meters.money}) on the same seed/city/archetype/kit`);
 
-    // the intended differences: V2 carries two extra men (the story friends)
-    // and has already closed its preseason, which the (unused) old flow here has not
+    // the intended difference: V2 has already closed its preseason, which the
+    // (unused) old flow here has not. Since 2.11 the story friends are not here
+    // yet (they come after match 1, on the friends scene's yes)
     checked += 1;
     const newSquadSize = G.mySquad(newGs).starters.length + G.mySquad(newGs).bench.length;
     const oldSquadSize = G.mySquad(oldGs).starters.length + G.mySquad(oldGs).bench.length;
-    if (newSquadSize < oldSquadSize) fails.push(`${city}: V2 squad (${newSquadSize}) is smaller than the old flow's starting squad (${oldSquadSize}), expected it to be the same or bigger (two story friends, no departures yet)`);
+    if (newSquadSize < oldSquadSize) fails.push(`${city}: V2 squad (${newSquadSize}) is smaller than the old flow's starting squad (${oldSquadSize}), expected it to be the same or bigger (no departures yet)`);
 
     // and the real round: send the sheet, play it, commit it, must not throw
     let played: G.GameState;

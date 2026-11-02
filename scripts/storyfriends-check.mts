@@ -141,7 +141,12 @@ function play(gs: G.GameState): G.GameState {
   let lo = Infinity, hi = -Infinity;
   for (const city of CITIES10) {
     for (let s = 0; s < SEEDS; s++) {
-      const gs = quickStart(newGameV2(s), city);
+      // since 2.11 quickStart brings nobody: the two sign only on the friends
+      // scene's yes after match 1 (answerFriends -> addStoryFriends, same call)
+      const started = quickStart(newGameV2(s), city);
+      checked++;
+      if (started.friends.length !== 0) fails.push(`${city}/${s}: quickStart already brought ${started.friends.length} friends, expected none before the friends scene`);
+      const gs = addStoryFriends(started);
       const story = gs.friends.filter(f => f.story);
       checked += story.length;
       const all = mine(gs);
@@ -154,7 +159,7 @@ function play(gs: G.GameState): G.GameState {
       }
     }
   }
-  console.log(`  real path (quickStart), ${CITIES10.length} cities x ${SEEDS} seeds at tier 1: story friends land ${lo}-${hi}`);
+  console.log(`  real path (quickStart + the scene's yes), ${CITIES10.length} cities x ${SEEDS} seeds at tier 1: story friends land ${lo}-${hi}`);
 }
 
 /* 2. PROTECTED: NO SALE, A SACKING SURVIVED, SEASON ONE IS UNTOUCHABLE,
