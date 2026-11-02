@@ -5290,7 +5290,10 @@ function endOfWeek(gs: GameState): GameState {
   let scout = back ?? gs.scout;
   if (wintry.open && !wasOpen) scout = scoutArrives(gs, scout);
   else if (!wintry.open && wasOpen) scout = { ...scout, offer: null };
-  return { ...gs, phase: 'hub', week: next, press: null, chat: null, fanHistory, notices, followUps, market: winterMarket(gs, next), scout };
+  // ONBOARD_V2: a quick-started career skipped the summer's sponsor; the shirt is sold right after match 1 instead
+  // (plan T6), and takeSponsor takes him on to the hub as it does in the summer
+  const phase = gs.obV2 && gs.season === 1 && !gs.sponsor ? 'sponsor' as const : 'hub' as const;
+  return { ...gs, phase, week: next, press: null, chat: null, fanHistory, notices, followUps, market: winterMarket(gs, next), scout };
 }
 
 /* -------------------------------------------------------------- the scout */

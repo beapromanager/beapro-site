@@ -501,6 +501,11 @@ export function stepFor(g: { phase: string; season: number; week: number }): Ste
   // from the names alone and the funnel reported people moving backwards.
   switch (g.phase) {
     case 'onboard-manager': return null;        // the first screen; nothing done yet
+    // ONBOARD_V2: the prologue and the city picker come before anything the old funnel names; career_new is
+    // already said by startNew, so nothing here (falling through to 'season' would count a stranger as in the league)
+    case 'ob-prologue':
+    case 'ob-city': return null;
+    case 'ob-names': return 'round_1';
     case 'onboard-club': return 'manager';
     case 'onboard-archetype': return 'club';
     case 'signing': return 'archetype';

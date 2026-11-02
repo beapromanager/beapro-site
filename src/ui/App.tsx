@@ -184,6 +184,12 @@ export function App() {
   // persist the career whenever it changes, so closing the tab is not a loss
   useEffect(() => { if (booted) saveCareer(gs); }, [gs, booted]);
 
+  // ONBOARD_V2 (plan section 8; kept above the back handler so check:back reads only screens below it): the first live match of a quick-started career kicked off
+  useEffect(() => {
+    if (!booted || adminKey || !gs.obV2) return;
+    if (gs.phase === 'match' && gs.season === 1 && gs.week === 1) obMark('ob_kickoff');
+  }, [booted, adminKey, gs.obV2, gs.phase, gs.season, gs.week]);
+
   /**
    * The phone's back button, wired to whatever "back" means on this screen.
    *
@@ -303,18 +309,19 @@ export function App() {
     if (!booted || adminKey || !gs.clubId) return;
     if (giftSigned) giftMark('gift10');
   }, [booted, adminKey, gs.clubId, giftSigned]);
-  // ONBOARD_V2 (plan section 8): the first live match of a quick-started career kicked off
-  useEffect(() => {
-    if (!booted || adminKey || !gs.obV2) return;
-    if (gs.phase === 'match' && gs.season === 1 && gs.week === 1) obMark('ob_kickoff');
-  }, [booted, adminKey, gs.obV2, gs.phase, gs.season, gs.week]);
 
-  function startNew() {
+  /**
+   * A new career. With ONBOARD_V2 the opening (the prologue) plays for a player with no career on this phone; a
+   * manager who already has one (a new career from the title over a save, or walking away from the rescue after a
+   * sacking) is not put through the film again and lands straight on the city picker, still the quick start.
+   */
+  function startNew(veteran = saved !== null) {
     track('career_new');
     clearCareer();
     setSaved(null);
     const seed = Math.floor(Math.random() * 100000) + 1;
-    const fresh = obV2Enabled() ? newGameV2(seed) : G.newGame(seed);
+    const v2 = obV2Enabled() ? newGameV2(seed) : null;
+    const fresh = v2 ? (veteran ? toObCity(v2, 'bench') : v2) : G.newGame(seed);
     setGs(ref ? G.acceptInvite(fresh, ref) : fresh);
     setBooted(true);
   }
@@ -360,7 +367,7 @@ export function App() {
     return (
       <div className="frame">
         <>
-          <TitleScreen saved={saved} onNew={startNew} onContinue={continueCareer} onInstall={() => setInstallOpen(true)}
+          <TitleScreen saved={saved} onNew={() => startNew()} onContinue={continueCareer} onInstall={() => setInstallOpen(true)}
             extra={weekendOn(wkNow) ? <WeekendEntry hasCareer={!!saved} onOpen={() => setWeekendOpen(true)} /> : undefined} />
           {installOpen && <InstallSheet onClose={() => setInstallOpen(false)} />}
         </>
@@ -611,7 +618,7 @@ export function App() {
       {gs.phase === 'season-end' && <SeasonEnd gs={gs} onContinue={() => setGs(G.startNextSeason(gs))} />}
       {gs.phase === 'ultimatum' && <UltimatumScreen gs={gs} onGo={() => setGs(G.advancePastPress(gs))} />}
       {gs.phase === 'sacked' && <SackedScreen gs={gs} onNext={() => setGs({ ...gs, phase: 'rescue' })} />}
-      {gs.phase === 'rescue' && <RescueScreen gs={gs} onTake={() => setGs(G.takeRescue(gs))} onWalkAway={startNew} />}
+      {gs.phase === 'rescue' && <RescueScreen gs={gs} onTake={() => setGs(G.takeRescue(gs))} onWalkAway={() => startNew(true)} />}
       {gs.phase === 'kit' && <KitReveal gs={gs} onDone={() => setGs(G.closeKitReveal(gs))} />}
       {gs.phase === 'sponsor' && <SponsorScreen gs={gs} onPick={(id, brand) => setGs(G.takeSponsor(gs, id, brand))} />}
       {gs.phase === 'preseason' && <PreSeasonScreen gs={gs} onStart={() => setGs(G.enterPreseason(gs))} />}
