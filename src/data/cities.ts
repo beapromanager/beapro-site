@@ -40,6 +40,7 @@ export const CITIES: City[] = [
   { name: 'ראש העין', lat: 32.09, lon: 34.95, size: 2 },
   { name: 'אורנית', lat: 32.13, lon: 35.03, size: 1 },
   { name: 'אריאל', lat: 32.10, lon: 35.17, size: 2 },
+  { name: 'הר ברכה', lat: 32.19, lon: 35.27, size: 1 },
   { name: 'גני תקווה', lat: 32.06, lon: 34.87, size: 1 },
   { name: 'סביון', lat: 32.05, lon: 34.87, size: 1 },
   { name: 'כפר קאסם', lat: 32.11, lon: 34.98, size: 2 },
@@ -425,7 +426,7 @@ export function buildSiblingLeague(cityName: string, tier: number, avoidId: stri
  * ראש העין against אורנית, two towns nine kilometres apart, which is a fight
  * over a piece of the map and not a derby, and it now has its own name.
  *
- * Ten kilometres, measured: of the 92 towns a manager can start in, 77% have a
+ * Ten kilometres, measured: of the 93 towns a manager can start in, 76% have a
  * neighbour inside it, at a median of under four kilometres. Past ten it stops
  * being the next town over and starts being a drive.
  */
