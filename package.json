@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --config vite.ops.config.ts",
     "preview": "vite preview",
     "sim": "node --experimental-strip-types src/engine/sanity.ts",
     "check:pitch": "node --experimental-strip-types scripts/pitch-check.mts",
@@ -97,7 +97,9 @@
     "check:onboardv2-citypicker": "node --experimental-strip-types scripts/onboardv2-citypicker-check.mts",
     "check:onboardv2-friends": "node --experimental-strip-types scripts/onboardv2-friends-check.mts",
     "check:prologue": "node --experimental-strip-types scripts/prologue-check.mts",
-    "check:firstmatch": "node --experimental-strip-types scripts/firstmatch-check.mts"
+    "check:firstmatch": "node --experimental-strip-types scripts/firstmatch-check.mts",
+    "check:ops": "node --experimental-strip-types scripts/ops-check.mts",
+    "check:ops-ui": "node scripts/ops-ui.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

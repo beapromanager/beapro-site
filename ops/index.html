@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://beapro-count.beapromanager.workers.dev; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com" />
+    <meta name="theme-color" content="#0b110e" />
+    <title>BE A PRO · דשבורד</title>
+    <!--
+      The owner's numbers. A page of its own: nothing in the game links here, it has no intro, no counting, no service worker,
+      and it keeps the key in memory only. It asks the counting worker for GET /stats (the endpoint live today): the key in an Authorization header once the
+      Worker allows it (dashboard_worker.patch), ?key= until then. Nothing is stored; see src/ops/api.ts.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/ops/main.tsx"></script>
+  </body>
+</html>

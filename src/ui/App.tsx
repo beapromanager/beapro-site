@@ -70,9 +70,7 @@ import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
 import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, cupMark, giftMark, dailyMark, obMark, STEP_ORDER } from '../game/telemetry.ts';
-import { AdminScreen } from './screens/Admin.tsx';
-import type { Stats as AdminStats } from './screens/Admin.tsx';
-import { TELEMETRY_URL } from '../data/telemetry.ts';
+import { OWNER_VISIT } from './ownerVisit.ts';
 import { armBack, setBackHandler, leaveGame } from './back.ts';
 import { ExitSheet } from './components/ExitSheet.tsx';
 import { ReportSheet } from './components/ReportSheet.tsx';
@@ -142,25 +140,10 @@ export function App() {
   const [ref] = useState<string | null>(() => {
     try { return refFromUrl(location.search); } catch { return null; }
   });
-  // ?admin=KEY is the only way to the numbers, and the key is judged by the
-  // worker, not here: a check in the browser is a lock with the key beside it.
-  // Nothing about the dashboard shows until the worker has said yes, because a
-  // screen that answers "wrong password" tells a stranger there is a password
-  // to get right. A wrong key is the game, exactly as an absent one is.
-  const [adminKey] = useState<string | null>(() => {
-    try { return new URLSearchParams(location.search).get('admin'); } catch { return null; }
-  });
-  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
-  useEffect(() => {
-    if (!adminKey || !TELEMETRY_URL) return;
-    let alive = true;
-    const base = TELEMETRY_URL.replace(/\/+$/, '');
-    fetch(`${base}/stats?key=${encodeURIComponent(adminKey)}&days=30`)
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (alive && d) setAdminStats(d); })
-      .catch(() => { /* no worker, no dashboard, and the game carries on */ });
-    return () => { alive = false; };
-  }, [adminKey]);
+  // The numbers are not here any more: they live on their own page, /ops/, which this game does not link to or load.
+  // A visit that came with an admin parameter (an old bookmark, a pasted link) has had it scrubbed from the address
+  // before anything ran (ownerVisit.ts), sends it nowhere, and is not counted: it is the owner looking, not a player.
+  const ownerVisit = OWNER_VISIT;
 
   // one handler for the share button that sits in the meters bar on every
   // screen. The functional update keeps it from closing over a stale state
@@ -177,22 +160,19 @@ export function App() {
   // an invite link is read once on load; then the address bar is tidied so a
   // refresh does not look like a second invite
   useEffect(() => {
-    // a key stays in the address, right or wrong: the dashboard has to survive
-    // a reload, and leaving a wrong one there tells nobody anything either
-    if (adminKey) return;
     try {
       if (location.search) history.replaceState(null, '', location.pathname);
     } catch { /* private mode, the link still worked */ }
-  }, [ref, adminKey]);
+  }, [ref]);
 
   // persist the career whenever it changes, so closing the tab is not a loss
   useEffect(() => { if (booted) saveCareer(gs); }, [gs, booted]);
 
   // ONBOARD_V2 (plan section 8; kept above the back handler so check:back reads only screens below it): the first live match of a quick-started career kicked off
   useEffect(() => {
-    if (!booted || adminKey || !gs.obV2) return;
+    if (!booted || ownerVisit || !gs.obV2) return;
     if (gs.phase === 'match' && gs.season === 1 && gs.week === 1) obMark('ob_kickoff');
-  }, [booted, adminKey, gs.obV2, gs.phase, gs.season, gs.week]);
+  }, [booted, ownerVisit, gs.obV2, gs.phase, gs.season, gs.week]);
   // the result screen's win clip comes down during the match, not after the final whistle (2.11)
   useEffect(() => { if (gs.phase === 'match') warmCelebrate(); }, [gs.phase]);
 
@@ -247,25 +227,25 @@ export function App() {
   // remember to report and none of this can drift out of date. Nothing he
   // typed is anywhere near it, see game/telemetry.ts.
   useEffect(() => {
-    // A visit carrying an admin key is Itzik looking at the numbers, and he
+    // A visit that carried an admin parameter is Itzik looking at the numbers, and he
     // will do that several times a day. Counting it would put him in his own
     // funnel and make the daily sittings mostly his.
-    if (adminKey) return;
+    if (ownerVisit) return;
     track('open');
     void flush();
     // and again on the way out, because for most people on a phone there is
     // no later: the tab is switched away from and never comes back
     return flushOnLeaving();
-  }, [adminKey]);
+  }, [ownerVisit]);
   // And the moment the title screen is actually up, which is a different moment
   // from the one above: "open" is reported when the app mounts, and the cold
   // open plays for four and a half seconds before anybody sees a button. The
   // two together split the largest fall in the funnel into the part that is the
   // film's fault and the part that is the title screen's.
   useEffect(() => {
-    if (adminKey || !introDone || booted) return;
+    if (ownerVisit || !introDone || booted) return;
     track('title');
-  }, [adminKey, introDone, booted]);
+  }, [ownerVisit, introDone, booted]);
 
   // 2.11 flow audit: a new player on the title is one tap from the prologue, so its code and
   // first two stills come down while he reads the title, not after he taps (it was ~1s of empty
@@ -284,54 +264,54 @@ export function App() {
     return () => window.clearTimeout(t);
   }, [introDone, booted, saved]);
   useEffect(() => {
-    if (!booted || adminKey) return;
+    if (!booted || ownerVisit) return;
     const step = stepFor(gs);
     if (step) track(step);
-  }, [booted, adminKey, gs.phase, gs.season, gs.week]);
+  }, [booted, ownerVisit, gs.phase, gs.season, gs.week]);
 
   // Where careers get to: which division, in which season, and who wins one. Counted from the moment a manager is
   // out in the league, so picking a colour is not an arrival. A career that is carried on from a save reports where
   // it stands the next time it is opened. Numbers only, see game/telemetry.ts.
   useEffect(() => {
-    if (!booted || adminKey || !gs.clubId) return;
+    if (!booted || ownerVisit || !gs.clubId) return;
     const at = stepFor(gs);
     if (at && STEP_ORDER[at] >= STEP_ORDER.season) reached(G.club(gs).tier, gs.season);
-  }, [booted, adminKey, gs.clubId, gs.phase, gs.season, gs.clubId && G.club(gs).tier]);
+  }, [booted, ownerVisit, gs.clubId, gs.phase, gs.season, gs.clubId && G.club(gs).tier]);
   useEffect(() => {
-    if (!booted || adminKey || !gs.clubId) return;
+    if (!booted || ownerVisit || !gs.clubId) return;
     if (G.wonTheLeague(gs)) wonLeague(G.club(gs).tier);
-  }, [booted, adminKey, gs.phase, gs.clubId]);
+  }, [booted, ownerVisit, gs.phase, gs.clubId]);
   useEffect(() => {
-    if (!booted || adminKey || !gs.clubId) return;
+    if (!booted || ownerVisit || !gs.clubId) return;
     if (gs.meters.money < 0) moneyMark('money_red');
     if (G.sackedOverDebt(gs)) moneyMark('money_sack');
-  }, [booted, adminKey, gs.clubId, gs.meters.money < 0, gs.sacking]);
+  }, [booted, ownerVisit, gs.clubId, gs.meters.money < 0, gs.sacking]);
   // Europe: drawn in, in the final, lifted it. Nothing while there is no cup, and nothing outside the ליגת העל
   const euroReports = G.euroMarksFor(gs).join(',');
   useEffect(() => {
-    if (!booted || adminKey || !gs.clubId) return;
+    if (!booted || ownerVisit || !gs.clubId) return;
     for (const k of euroReports ? euroReports.split(',') as Array<'eu_in' | 'eu_final' | 'eu_won'> : []) euroMark(k);
-  }, [booted, adminKey, gs.clubId, euroReports]);
+  }, [booted, ownerVisit, gs.clubId, euroReports]);
   // גביע המדינה: drawn in, in the semi, in the final, lifted it. Nothing outside tier 4/5
   const cupReports = G.cupMarksFor(gs).join(',');
   useEffect(() => {
-    if (!booted || adminKey || !gs.clubId) return;
+    if (!booted || ownerVisit || !gs.clubId) return;
     for (const k of cupReports ? cupReports.split(',') as Array<'cup_in' | 'cup_sf' | 'cup_final' | 'cup_won'> : []) cupMark(k);
-  }, [booted, adminKey, gs.clubId, cupReports]);
+  }, [booted, ownerVisit, gs.clubId, cupReports]);
   // the daily gift: how far the run has gone. Each name once a device; with the door shut no run ever begins
   const dailyStreak = gs.daily?.streak ?? 0;
   useEffect(() => {
-    if (!booted || adminKey || !gs.clubId) return;
+    if (!booted || ownerVisit || !gs.clubId) return;
     if (dailyStreak >= 1) dailyMark('daily_1');
     if (dailyStreak >= 7) dailyMark('daily_7');
     if (dailyStreak >= 30) dailyMark('daily_30');
-  }, [booted, adminKey, gs.clubId, dailyStreak]);
+  }, [booted, ownerVisit, gs.clubId, dailyStreak]);
   // the loyalty gift: the man past ten seasons was signed. Once a device, like the rest
   const giftSigned = !!gs.loyalGift?.playerId;
   useEffect(() => {
-    if (!booted || adminKey || !gs.clubId) return;
+    if (!booted || ownerVisit || !gs.clubId) return;
     if (giftSigned) giftMark('gift10');
-  }, [booted, adminKey, gs.clubId, giftSigned]);
+  }, [booted, ownerVisit, gs.clubId, giftSigned]);
 
   /**
    * A new career. With ONBOARD_V2 the opening (the prologue) plays for a player with no career on this phone; a
@@ -364,10 +344,6 @@ export function App() {
     setBooted(true);
   }
   function continueCareer() { bootCareer(); }
-
-  if (adminStats) {
-    return <div className="frame"><AdminScreen stats={adminStats} /></div>;
-  }
 
   if (!introDone) {
     return (
@@ -598,7 +574,7 @@ export function App() {
       )}
       {gs.phase === 'match' && gs.fix?.stage !== 'agreed' && (
         <MatchBroadcast gs={gs} onDone={result => setGs(G.commitRound(gs, result))}
-          onHalfTime={gs.season === 1 && gs.week === 1 && !adminKey ? () => track('match1_half') : undefined} />
+          onHalfTime={gs.season === 1 && gs.week === 1 && !ownerVisit ? () => track('match1_half') : undefined} />
       )}
       {gs.phase === 'fix-verdict' && <FixVerdictScreen gs={gs} onResolve={() => setGs(G.resolveFix(gs))} />}
       {gs.phase === 'friendly' && <FriendlyScreen gs={gs} onDone={() => setGs(g => G.finishFriendly(g))} />}

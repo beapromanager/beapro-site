@@ -15,7 +15,7 @@
  *      trusting it
  *   4. with no endpoint the game sends nothing at all, which is how it ships
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import * as T from '../src/game/telemetry.ts';
 import { TELEMETRY_URL } from '../src/data/telemetry.ts';
 import * as G from '../src/game/state.ts';
@@ -135,7 +135,7 @@ let checked = 0;
   }
   // and the half is only counted for the FIRST match, and never on a dashboard visit
   checked += 2;
-  if (!appSrc.includes("onHalfTime={gs.season === 1 && gs.week === 1 && !adminKey ? () => track('match1_half') : undefined}")) {
+  if (!appSrc.includes("onHalfTime={gs.season === 1 && gs.week === 1 && !ownerVisit ? () => track('match1_half') : undefined}")) {
     fails.push('the half of every match would be counted as the first, or the dashboard visit counts one');
   }
   const matchSrc = readFileSync('src/ui/screens/Match.tsx', 'utf8');
@@ -215,11 +215,13 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   const state = readFileSync('src/game/state.ts', 'utf8');
   if (/fetch\(/.test(state)) fails.push('state.ts, where every typed name lives, can reach the network');
   const app = readFileSync('src/ui/App.tsx', 'utf8');
+  // (27.10, dashboard v2: this was "every fetch in the App is /stats?key="; the numbers have their own page now, so the App
+  // may not fetch at all, which is stronger)
   const appFetches = [...app.matchAll(/fetch\(([^\n]*)/g)].map(m => m[1]);
-  const posting = appFetches.filter(f => !/\/stats\?key=/.test(f));
-  if (posting.length) fails.push(`the App fetches something other than the numbers: ${posting.join(' | ')}`);
+  if (appFetches.length) fails.push(`the App fetches: ${appFetches.join(' | ')}`);
+  if (/XMLHttpRequest|sendBeacon|new WebSocket/.test(app)) fails.push('the App reaches the network some other way');
   if (/method: 'POST'/.test(app)) fails.push('the App posts to the network, which only telemetry.ts may do');
-  console.log(`  only telemetry.ts sends; state.ts cannot reach the network and the App only reads the numbers`);
+  console.log(`  only telemetry.ts sends; state.ts and the App cannot reach the network`);
 }
 
 /* 3b. THE WORKER AGREES WITH THE GAME ABOUT WHAT THE ROAD IS.
@@ -237,43 +239,48 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   if (theirs.join(',') !== T.STEPS.join(',')) {
     fails.push(`the worker's steps are [${theirs.join(', ')}] and the game's are [${T.STEPS.join(', ')}]`);
   }
-  // and the dashboard has a Hebrew name for every one of them
-  const admin = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
-  const unlabelled = T.STEPS.filter(s => !new RegExp(`\\b${s}: '`).test(admin));
-  if (unlabelled.length) fails.push(`the dashboard has no words for: ${unlabelled.join(', ')}`);
-  console.log(`  the worker and the game agree on all ${theirs.length} steps, and each has a name on the dashboard`);
+  // and the dashboard (src/ops, its own page since 2.11) has plain Hebrew for every step and every closed mark it can show
+  const labels = readFileSync('src/ops/labels.ts', 'utf8');
+  const names = [...T.STEPS, ...T.OB_MARKS, ...T.CUP_MARKS, ...T.EURO_MARKS, ...T.GIFT_MARKS, ...T.SHARE_MARKS, ...T.DAILY_MARKS, ...T.MONEY_MARKS] as string[];
+  const unlabelled = names.filter(d => !new RegExp(`\\b${d}: '[^']*[\u0590-\u05FF]`).test(labels));
+  checked += 1;
+  if (unlabelled.length) fails.push(`the dashboard has no Hebrew words for: ${unlabelled.join(', ')}`);
+  console.log(`  the worker and the game agree on all ${theirs.length} steps, and every step and mark has a Hebrew name on the dashboard`);
 }
 
-/* 3c. A WRONG KEY IS THE GAME, NOT A LOCKED DOOR.
-      The worker refuses a bad key, which was never in doubt. The fault was
-      what the PAGE did with the refusal: it mounted a screen headed "הנתונים"
-      that said "wrong password", so anyone who tried ?admin=anything learned
-      there was a password worth guessing, and lost the game while they did.
-      A wrong key has to be indistinguishable from no key at all.
-
-      And a visit carrying a key is Itzik checking his numbers, several times a
-      day. Counting it would put him in his own funnel. */
+/* 3c. THE GAME HAS NO DOOR TO THE NUMBERS, AND AN OLD LINK TO ONE IS NOT A PLAYER.
+      (Rewritten 27.10 with the dashboard moved to its own page, /ops/. The four things this used to hold, and what holds them now:
+        - "any ?admin= value does not mount the dashboard", "it is gated on the worker having said yes": the game cannot mount a
+          dashboard at all, there is no screen for it in the game
+        - "no wrong-password screen, which advertises the door": no file of the game says a key or a password is wrong; only the
+          dashboard page may, and a stranger cannot reach it from the game
+        - "a visit carrying a key is not counted as a player": still held, now as `ownerVisit`, which is true when the address
+          carried an admin parameter and which the address is scrubbed of before anything else runs
+        - "the App only reads the numbers": the App does not read anything; see the check on fetch above)
+      The rest of the door (the key in memory only, where it is sent, the page itself) is scripts/ops-check.mts and scripts/ops-ui.mjs. */
 {
   const app = readFileSync('src/ui/App.tsx', 'utf8');
-  const admin = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
-  checked += 4;
-
-  // the dashboard is reached through the ANSWER, never through the key alone
-  if (/if \(adminKey\) \{\s*\n\s*return <div className="frame"><AdminScreen/.test(app)) {
-    fails.push('any ?admin= value mounts the dashboard, so a stranger learns there is one');
+  checked += 6;
+  if (/AdminScreen|adminStats|AdminStats|screens\/Admin/.test(app) || existsSync('src/ui/screens/Admin.tsx')) {
+    fails.push('the game still has a screen for the numbers, so a stranger who tries ?admin=anything could be shown one');
   }
-  if (!/if \(adminStats\) \{/.test(app)) {
-    fails.push('the dashboard is not gated on the worker having accepted the key');
-  }
-  // and it cannot draw a refusal, because it never sees one
-  if (/סיסמה שגויה/.test(admin)) {
-    fails.push('the dashboard still has a wrong-password screen, which advertises the door');
-  }
+  const walk = (d: string): string[] => readdirSync(d).flatMap(f => { const q = `${d}/${f}`; return statSync(q).isDirectory() ? walk(q) : [q]; });
+  const wrong = walk('src').filter(f => /\.(ts|tsx)$/.test(f) && !f.startsWith('src/ops') && /סיסמה שגויה|המפתח לא נכון|wrong password|wrong key/i.test(readFileSync(f, 'utf8')));
+  if (wrong.length) fails.push(`${wrong.join(', ')} says a key is wrong, which advertises the door`);
   // his own visits are not players
-  if (!/if \(adminKey\) return;\s*\n\s*track\('open'\)/.test(app)) {
-    fails.push('a visit to the dashboard is counted as somebody playing the game');
+  if (!/if \(ownerVisit\) return;\s*\n\s*track\('open'\)/.test(app)) {
+    fails.push('a visit that came with an admin parameter is counted as somebody playing the game');
   }
-  console.log('  a wrong key is just the game, and looking at the numbers is not playing');
+  if (!/const ownerVisit = OWNER_VISIT;/.test(app) || !/export const OWNER_VISIT: boolean = scrub\(\);/.test(readFileSync('src/ui/ownerVisit.ts', 'utf8'))) {
+    fails.push('the visit is not told from an address that was scrubbed at load');
+  }
+  const idx = readFileSync('src/main.tsx', 'utf8').split('\n').filter(l => /^import /.test(l));
+  if (idx[0] !== "import './ui/ownerVisit.ts';") fails.push('the scrub is not the first thing the game loads');
+  // and nothing of the counting runs for such a visit: every report the App makes is behind the same guard
+  const reports = [...app.matchAll(/useEffect\(\(\) => \{\s*\n\s*if \(([^)]*)\) return;/g)].map(m => m[1]);
+  const unguarded = reports.filter(g => /!booted|booted/.test(g) && !/ownerVisit/.test(g));
+  if (unguarded.length) fails.push(`a report that the owner's own visit would make: if (${unguarded.join('), if (')})`);
+  console.log('  the game has no screen for the numbers and no word about a key; an old link is scrubbed and not counted as a player');
 }
 
 /* 3d. THE DEVICE IS NOT THE AUTHORITY ON WHAT THE SERVER KNOWS.
@@ -538,9 +545,9 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   if (!/export function euroMark\(k: typeof EURO_MARKS\[number\]\): void/.test(tele3)) fails.push('euroMark() takes something wider than the three closed names');
   const app3 = readFileSync('src/ui/App.tsx', 'utf8');
   if (!app3.includes('const euroReports = G.euroMarksFor(gs).join(\',\');') || !app3.includes('euroMark(k)')) fails.push('nothing in the App reports Europe');
-  if (!/useEffect\(\(\) => \{\s*\n\s*if \(!booted \|\| adminKey \|\| !gs\.clubId\) return;\s*\n\s*for \(const k of euroReports/.test(app3)) fails.push('a visit to the dashboard, or a career with no club, reports Europe');
-  const adm3 = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
-  if (!adm3.includes('ליגת אירופה') || !adm3.includes("x.step === 'eu_final'")) fails.push('the dashboard has no place for the European cup');
+  if (!/useEffect\(\(\) => \{\s*\n\s*if \(!booted \|\| ownerVisit \|\| !gs\.clubId\) return;\s*\n\s*for \(const k of euroReports/.test(app3)) fails.push('a visit to the dashboard, or a career with no club, reports Europe');
+  const adm3 = readFileSync('src/ops/Dashboard.tsx', 'utf8');
+  if (!adm3.includes('ליגת אירופה') || !adm3.includes('eu_final')) fails.push('the dashboard has no place for the European cup');
   // the door is shut, so no career carries a cup and nothing is reported until it opens
   if (G.euroMarksFor(G.newGame(5)).length !== 0) fails.push('a career with no cup reports Europe');
   console.log('  Europe: three closed marks in the game, the worker and the sending code, counted once a device, nothing while the door is shut');
@@ -560,8 +567,8 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   if (!tele4.includes('export function giftMark(k: typeof GIFT_MARKS[number]): void')) fails.push('giftMark() takes something wider than the one closed name');
   const app4 = readFileSync('src/ui/App.tsx', 'utf8');
   if (!app4.includes('const giftSigned = !!gs.loyalGift?.playerId;') || !app4.includes("if (giftSigned) giftMark('gift10');")) fails.push('nothing in the App reports the gift');
-  const adm4 = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
-  if (!adm4.includes('data.reach.gift') || !adm4.includes('המתנה למי שנשאר')) fails.push('the dashboard has no place for the gift count');
+  const adm4 = readFileSync('src/ops/Dashboard.tsx', 'utf8');
+  if (!adm4.includes('depth.gift10') || !adm4.includes('המתנה למי שנשאר')) fails.push('the dashboard has no place for the gift count');
   console.log('  the loyalty gift: one closed mark in the game, the worker, the sending code and the dashboard, counted once a device');
 }
 
@@ -578,8 +585,8 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   if (!readFileSync('src/game/telemetry.ts', 'utf8').includes('export function shareMark(k: typeof SHARE_MARKS[number]): void')) fails.push('shareMark() takes something wider than the one closed name');
   const end5 = readFileSync('src/ui/screens/SeasonEnd.tsx', 'utf8');
   if (!end5.includes("onShared={() => shareMark('share_tap')}")) fails.push('nothing reports a share');
-  const adm5 = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
-  if (!adm5.includes('data.reach.share') || !adm5.includes('שיתוף לחבר')) fails.push('the dashboard has no place for the share count');
+  const adm5 = readFileSync('src/ops/Dashboard.tsx', 'utf8');
+  if (!adm5.includes('share.tap') || !adm5.includes('שיתוף לחבר')) fails.push('the dashboard has no place for the share count');
 }
 
 /* 3g6. THE DAILY GIFT: three closed marks, held in the game, the worker, the sending code and the dashboard together. */
@@ -595,8 +602,8 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   if (!readFileSync('src/game/telemetry.ts', 'utf8').includes('export function dailyMark(k: typeof DAILY_MARKS[number]): void')) fails.push('dailyMark() takes something wider than the three closed names');
   const app6 = readFileSync('src/ui/App.tsx', 'utf8');
   if (!app6.includes("if (dailyStreak >= 1) dailyMark('daily_1');") || !app6.includes("if (dailyStreak >= 7) dailyMark('daily_7');") || !app6.includes("if (dailyStreak >= 30) dailyMark('daily_30');")) fails.push('nothing reports how far a run has gone');
-  const adm6 = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
-  if (!adm6.includes('data.reach.daily') || !adm6.includes('המתנה היומית')) fails.push('the dashboard has no place for the daily counts');
+  const adm6 = readFileSync('src/ops/Dashboard.tsx', 'utf8');
+  if (!adm6.includes('dailyGift') || !adm6.includes('המתנה היומית')) fails.push('the dashboard has no place for the daily counts');
 }
 
 /* 3h. THE GAME REPORTS THEM, AND ONLY FROM A REAL CAREER ON A REAL PAGE. */
@@ -604,7 +611,7 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   checked += 11;
   const tele = readFileSync('src/game/telemetry.ts', 'utf8');
   const app = readFileSync('src/ui/App.tsx', 'utf8');
-  const admin = readFileSync('src/ui/screens/Admin.tsx', 'utf8');
+  const admin = readFileSync('src/ops/Dashboard.tsx', 'utf8');
   // handed numbers, never a career
   if (!/export function reached\(tier: number, season: number\): void/.test(tele)) fails.push('reached() takes something wider than two numbers');
   if (!/export function wonLeague\(tier: number\): void/.test(tele)) fails.push('wonLeague() takes something wider than a number');
@@ -612,7 +619,7 @@ function playRound(gs: G.GameState, seed: number): G.GameState {
   // the App asks, from a career that is out in the league, and never for the dashboard's own visits
   if (!app.includes('reached(G.club(gs).tier, gs.season)')) fails.push('nothing in the App reports the division and the season');
   if (!app.includes('wonLeague(G.club(gs).tier)') || !app.includes('G.wonTheLeague(gs)')) fails.push('nothing in the App reports a title');
-  if (!/if \(!booted \|\| adminKey \|\| !gs\.clubId\) return;\s*\n\s*const at = stepFor\(gs\);/.test(app)) fails.push('a visit to the dashboard, or a career with no club, is counted as a division');
+  if (!/if \(!booted \|\| ownerVisit \|\| !gs\.clubId\) return;\s*\n\s*const at = stepFor\(gs\);/.test(app)) fails.push('a visit to the dashboard, or a career with no club, is counted as a division');
   if (!app.includes('STEP_ORDER[at] >= STEP_ORDER.season')) fails.push('a manager still picking a colour is counted as having arrived in a division');
   if (!admin.includes('לאן מגיעים')) fails.push('the dashboard has no place for where careers get to');
 

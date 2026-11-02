@@ -1,3 +1,5 @@
+// first of all: an admin parameter in the address is scrubbed before anything else in the game exists (ownerVisit.ts)
+import './ui/ownerVisit.ts';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './ui/tokens.css';

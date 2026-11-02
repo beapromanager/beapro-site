@@ -23,4 +23,8 @@ self.addEventListener('activate', event => {
 
 // a fetch handler has to exist for the app to count as installable. This one is
 // a pass through on purpose.
+//
+// It answers nothing and stores nothing, for anything: not the game, not /ops/ (the owner's dashboard, which has no worker
+// of its own and whose pages and numbers must never be kept on a phone), and not the counting worker. No respondWith, and
+// no use of the browser's cache storage at all. scripts/ops-check.mts holds this still.
 self.addEventListener('fetch', () => { /* straight to the network */ });
