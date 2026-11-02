@@ -3,10 +3,8 @@
  *   node --experimental-strip-types scripts/onboardv2-flag-check.mts
  *
  * Four questions:
- *   (a) with the flag off, newGame is byte-for-byte what it was before this
- *       branch touched anything, and ONBOARD_V2/obV2Enabled() are both false
- *       under node, where import.meta.env is undefined and no override can
- *       ever apply;
+ *   (a) newGame (the old builder) is byte-for-byte main's, and since 2.11
+ *       (Itzik approved the opening) ONBOARD_V2/obV2Enabled() are both true;
  *   (b) twenty careers built the way an older build would have (no obV2
  *       field at all) go through saveCareer/loadCareer unharmed: no obV2
  *       key appears from nowhere, no 'ob-*' phase appears from nowhere;
@@ -15,8 +13,8 @@
  *       (the save guard is explicit about the two phases, not only about
  *       clubId being empty);
  *   (d) a sabotage proof: the source is read for the literal
- *       `ONBOARD_V2 = false`, and the same assertion that reads it is run
- *       against a simulated `true` to show it would fail. The real test —
+ *       `ONBOARD_V2 = true`, and the same assertion that reads it is run
+ *       against a simulated `false` to show it would fail. The real test —
  *       flip the file, run the check, watch it fail, put the file back —
  *       is done by hand once and confirmed with `git diff`, not by this
  *       script (it cannot un-sabotage a passing import at runtime).
@@ -55,29 +53,31 @@ const fingerprint = (gs: unknown): string => createHash('sha256').update(canon(g
 
 /* ---------------------------------------------------------- (a) flag off, today's newGame, untouched */
 {
-  // captured from this branch's own newGame(seed), which this script's header explains is unaffected:
-  // the diff against origin/main only adds Phase union members and an optional interface field, never
-  // touches the newGame() function body itself. A real change to what newGame returns moves these.
+  // captured from main's own newGame(seed) at 0795753 (2.11: הר ברכה joined the cities, which moved every
+  // fingerprint on main itself), and this branch's newGame is byte-identical to it: the diff against main only
+  // adds Phase union members and an optional interface field, never touches the newGame() function body itself.
+  // A real change to what newGame returns moves these.
   const FINGERPRINTS: Record<number, string> = {
-    1: '7f6124dd428f15e232730c1087e02f471de86c13444dc76ea253f24e72e58bd3',
-    42: 'f53e399455ede24cc54e361f07f9d9915522299899093aab499414c3bd8f262c',
-    12345: 'a582eb382caf8093d29e56a4b21d6b89105b7a3bb888b183ec7483b9bafdca86',
-    999999: '3f62d56f1311b08bab9695dd6ab00bc8a9a887ca9f7cfbe226d2478bbc7bf8fe',
-    777: '7d513fe72eccc2fb6e764f255bc59a32f2997c77b3900fcba549fbacdb7392e3',
+    1: '300b7e3b24ff40da08dd0c07ed01d51a706822dbcef2bed3ae82d2b4531dbeed',
+    42: '5a1b7e2e912757462cf98c1d86c68829f439e75210f555ab62ddb1e20e3c034c',
+    12345: '5ad8319f4771a1a8802c83a1598734b81c4cf7d29a323845e11207d29c0a8353',
+    999999: '2308292681a07d64bc3152c162ce5911b4f806ddd58970ab476329174e5ab534',
+    777: '7678879703bebb51458b0f69c08531c6a3c9242ef5a6a49a3c501012ecffee2c',
   };
   for (const [seedStr, expected] of Object.entries(FINGERPRINTS)) {
     checked++;
     const seed = Number(seedStr);
     const got = fingerprint(G.newGame(seed));
-    if (got !== expected) fails.push(`newGame(${seed}) fingerprint is ${got}, expected ${expected} — today's flow changed with the flag off`);
+    if (got !== expected) fails.push(`newGame(${seed}) fingerprint is ${got}, expected ${expected} — the old flow's builder changed`);
   }
   checked += 4;
   const fresh = G.newGame(1);
   if ('obV2' in fresh) fails.push('newGame carries an obV2 key with the flag off; it must not exist until T1\'s builder adds it on purpose');
   if (fresh.phase !== 'onboard-manager') fails.push(`newGame starts on "${fresh.phase}" with the flag off, expected onboard-manager`);
-  if (ONBOARD_V2 !== false) fails.push('ONBOARD_V2 is not false; the door must stay shut for every player');
-  if (obV2Enabled() !== false) fails.push('obV2Enabled() is true under node, where import.meta.env is undefined and no override can ever apply');
-  console.log(`  flag off: ${Object.keys(FINGERPRINTS).length} seeds fingerprint-match today's newGame, no obV2 key, phase onboard-manager`);
+  // 2.11: Itzik approved the opening, the door is open for every new player (was: must stay false)
+  if (ONBOARD_V2 !== true) fails.push('ONBOARD_V2 is not true; the opening Itzik approved on 2.11 is shut');
+  if (obV2Enabled() !== true) fails.push('obV2Enabled() is false under node with the flag on');
+  console.log(`  flag on: ${Object.keys(FINGERPRINTS).length} seeds fingerprint-match main's newGame (the old builder, untouched), no obV2 key, phase onboard-manager`);
 }
 
 /* ------------------------------------------------------- (b) twenty old saves, built and stripped */
@@ -160,19 +160,19 @@ function asOldSave(gs: G.GameState): G.GameState {
 {
   checked += 2;
   const src = readFileSync('src/game/onboardV2.ts', 'utf8');
-  if (!/export const ONBOARD_V2 = false;/.test(src)) {
-    fails.push('src/game/onboardV2.ts no longer has the literal `export const ONBOARD_V2 = false;` — the door may not be shut for every player');
+  if (!/export const ONBOARD_V2 = true;/.test(src)) {
+    fails.push('src/game/onboardV2.ts no longer has the literal `export const ONBOARD_V2 = true;` — the opening is shut for new players');
   }
-  // the same assertion the "(a)" block runs above, against a simulated flag flipped to true: shows this check
-  // would have caught exactly the sabotage it is meant to catch, without actually leaving the door open
+  // the same assertion the "(a)" block runs above, against a simulated flag flipped back to false: shows this check
+  // would have caught exactly the sabotage it is meant to catch
   const simulateAssertion = (flag: boolean): string[] => {
     const simulatedFails: string[] = [];
-    if (flag !== false) simulatedFails.push('ONBOARD_V2 is not false');
+    if (flag !== true) simulatedFails.push('ONBOARD_V2 is not true');
     return simulatedFails;
   };
-  if (simulateAssertion(true).length === 0) fails.push('the sabotage simulation (flag flipped to true) did not produce a failure; this check cannot be trusted to catch a real one');
-  if (simulateAssertion(false).length !== 0) fails.push('the sabotage simulation flags a healthy false default as broken; it is miscalibrated');
-  console.log('  sabotage proof: the literal is read from source, and the same assertion against a simulated true fails as it should');
+  if (simulateAssertion(false).length === 0) fails.push('the sabotage simulation (flag flipped to false) did not produce a failure; this check cannot be trusted to catch a real one');
+  if (simulateAssertion(true).length !== 0) fails.push('the sabotage simulation flags a healthy true flag as broken; it is miscalibrated');
+  console.log('  sabotage proof: the literal is read from source, and the same assertion against a simulated false fails as it should');
 }
 
 console.log(`\n${checked} checks`);
@@ -180,6 +180,6 @@ if (fails.length) {
   console.log('\n  ' + fails.slice(0, 20).join('\n  '));
   console.log('\nFAIL');
 } else {
-  console.log('OK, ONBOARD_V2 stays false, newGame is untouched with the flag off, old saves stay old, and newGameV2 is well formed');
+  console.log('OK, ONBOARD_V2 is on, the old newGame is untouched, old saves stay old, and newGameV2 is well formed');
 }
 process.exit(fails.length ? 1 : 0);

@@ -32,8 +32,8 @@ function devOverride(): boolean {
   }
 }
 
-/** The door, shut for every player. One line opens it for everybody; the override opens it for a developer alone. */
-export const ONBOARD_V2 = false;
+/** The door, open for every new player since 2.11 (Itzik approved the opening). A saved career never passes through it. */
+export const ONBOARD_V2 = true;
 
 /** Whether the rebuilt onboarding is live right now, flag or (dev-only) override. */
 export function obV2Enabled(): boolean {
