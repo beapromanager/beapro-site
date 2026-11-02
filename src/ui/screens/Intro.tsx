@@ -100,6 +100,10 @@ export function IntroCinematic({ onDone }: { onDone: () => void }) {
       position: 'absolute', inset: 0, zIndex: 5, background: '#04060a',
       overflow: 'hidden', cursor: 'pointer',
     }}>
+      {/* 2.11 flow audit: while the first frame is still on its way, a small mark that something is
+          coming instead of plain black (fades in only after a beat, so a fast line never sees it) */}
+      {!ready && <div className="ob-loading ob-loading-late" aria-hidden="true"><span className="ob-spin" /></div>}
+
       {/* the living frame: one era at a time, remounted per cut so its move restarts */}
       {ready && (
         <div key={i} aria-hidden="true" style={{

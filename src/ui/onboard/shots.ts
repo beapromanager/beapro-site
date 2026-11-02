@@ -68,6 +68,8 @@ const warmed = new Set<string>();
  * is fetched with `new Image()`, a clip with a metadata-only <link rel=preload>
  * so mobile data is not spent on a video he may skip past.
  */
+const inflight = new Set<HTMLImageElement>();
+
 export function preloadShots(ids: readonly ShotId[]): void {
   if (typeof window === 'undefined') return;
   for (const id of ids) {
@@ -77,6 +79,10 @@ export function preloadShots(ids: readonly ShotId[]): void {
       warmed.add(s.image);
       const img = new Image();
       img.decoding = 'async';
+      // held until it lands: an Image nobody references can be collected mid-download,
+      // which on a slow line left the friends' still a bare gradient when it came up
+      inflight.add(img);
+      img.onload = img.onerror = () => { inflight.delete(img); };
       img.src = s.image;
     }
     if (s.video && !warmed.has(s.video) && typeof document !== 'undefined') {

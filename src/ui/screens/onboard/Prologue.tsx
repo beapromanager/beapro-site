@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ShotFrame } from '../../onboard/ShotFrame.tsx';
 import { preloadShots } from '../../onboard/shots.ts';
 import type { ShotId } from '../../onboard/shots.ts';
-import { nextPrologueStep, PROLOGUE_START, PROLOGUE_STEPS } from '../../../game/prologueFlow.ts';
+import { nextPrologueStep, PROLOGUE_START, PROLOGUE_STEPS, walkPrologue } from '../../../game/prologueFlow.ts';
 import type { ObChoice, PrologueStepId } from '../../../game/prologueFlow.ts';
 import { obMark } from '../../../game/telemetry.ts';
 import { Icon } from '../../components/Icon.tsx';
@@ -36,11 +36,32 @@ const CAPTIONS: Partial<Record<PrologueStepId, string>> = {
 };
 
 /** what the beat AFTER `step` will show: both branch shots at the choice, the city backdrop at the end (plan section 7) */
-function nextShots(step: PrologueStepId): ShotId[] {
+function nextShots(step: PrologueStepId, choice: ObChoice = 'bench'): ShotId[] {
   if (step === 'choice') return ['s05a-sit', 's05b-bottle'];
-  const n = nextPrologueStep(step, { choice: 'bench' });
+  const n = nextPrologueStep(step, { choice });
   if (n === 'city') return ['s11-city'];
   return PROLOGUE_STEPS[n].shots as ShotId[];
+}
+
+/**
+ * The next beat's still first, then the one after it (2.11, flow audit): a
+ * quick tapper used to outrun a one-beat warm-up and land on an empty
+ * gradient (the 5th goal and the sand pitch, ~0.8s and ~1.3s on a slow line).
+ * Same files, same total bytes, just asked for one tap earlier.
+ */
+function warmShots(step: PrologueStepId, choice: ObChoice): ShotId[] {
+  const near = nextShots(step, choice);
+  if (step === 'choice') return [...near, 's06-red', 's07-tunnel'];
+  const n = nextPrologueStep(step, { choice });
+  return n === 'city' ? near : [...near, ...nextShots(n, choice)];
+}
+
+/** how far along his chosen path this beat is, 0..1, for the thin line on top */
+function progressOf(step: PrologueStepId, choice: ObChoice): number {
+  const path = walkPrologue(choice);
+  const beats = path.length - 1;   // the last entry is 'city', the hand-off, not a beat
+  const i = path.indexOf(step);
+  return i < 0 ? 0 : (i + 1) / beats;
 }
 
 export function Prologue({ onDone }: { onDone: (choice: ObChoice) => void }) {
@@ -50,7 +71,7 @@ export function Prologue({ onDone }: { onDone: (choice: ObChoice) => void }) {
 
   useEffect(() => { obMark('ob_prologue'); }, []);
   useEffect(() => {
-    preloadShots(nextShots(step));
+    preloadShots(warmShots(step, choice));
     setAnswered(false);
     if (step === 'goal5') obMark('ob_goal5');
     if (step === 'call') obMark('ob_call');
@@ -76,9 +97,12 @@ export function Prologue({ onDone }: { onDone: (choice: ObChoice) => void }) {
 
   const shot = PROLOGUE_STEPS[step].shots[0] as ShotId;
   const skipBtn = (
-    <button className="ob-skip" onClick={() => go({ skip: true })} aria-label="דלג על הפרולוג">
-      דלג <Icon name="chevron" size={13} />
-    </button>
+    <>
+      <div className="ob-progress" aria-hidden="true"><i style={{ width: `${Math.round(progressOf(step, choice) * 100)}%` }} /></div>
+      <button className="ob-skip" onClick={() => go({ skip: true })} aria-label="דלג על הפרולוג">
+        דלג <Icon name="chevron" size={13} />
+      </button>
+    </>
   );
 
   // ---- the choice: two buttons, no tap-anywhere here (plan section 2.2) ----

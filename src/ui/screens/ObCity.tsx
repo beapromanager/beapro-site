@@ -8,7 +8,7 @@
  * s12-loyal, two players at the gate) was cut 2.11 at Itzik's word, the two
  * friends now appear only after match 1 (ObFriends).
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CITIES } from '../../data/cities.ts';
 import { Icon } from '../components/Icon.tsx';
 import { SHOTS } from '../onboard/shots.ts';
@@ -23,6 +23,13 @@ export function ObCityScreen({ onDone }: { onDone: (city: string, name: string) 
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // 2.11 flow audit: the search is where he starts, so a mouse/keyboard player lands in it.
+  // Never on a touch phone: iOS would throw the keyboard up over the list before he has read the screen.
+  useEffect(() => {
+    if (window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) searchRef.current?.focus({ preventScroll: true });
+  }, []);
 
   const list = useMemo(() => {
     const s = q.trim();
@@ -49,12 +56,20 @@ export function ObCityScreen({ onDone }: { onDone: (city: string, name: string) 
       </div>
 
       <div className="ob-cityCard">
-        <input
-          className="field" value={q} onChange={e => setQ(e.target.value)}
-          placeholder="חפש עיר" autoComplete="off" autoCorrect="off" spellCheck={false}
-        />
+        <div className="ob-search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5" /><path d="M20 20l-4.6-4.6" />
+          </svg>
+          <input
+            ref={searchRef} type="text" inputMode="search" enterKeyHint="search" aria-label="חפש את העיר שלך"
+            className="field" value={q} onChange={e => setQ(e.target.value)}
+            // Enter takes the top match, so typing the city and hitting Enter is enough
+            onKeyDown={e => { if (e.key === 'Enter' && list.length) { setSelected(list[0].name); e.currentTarget.blur(); } }}
+            placeholder="חפש עיר, או בחר מהרשימה" autoComplete="off" autoCorrect="off" spellCheck={false}
+          />
+        </div>
 
-        <div className="stack" style={{ gap: 7, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div className="stack ob-cityList" style={{ gap: 7, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
           {list.map(c => {
             const on = selected === c.name;
             return (

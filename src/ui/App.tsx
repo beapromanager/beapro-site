@@ -12,6 +12,8 @@ import { IntroCinematic } from './screens/Intro.tsx';
 import { Tutorial } from './components/Tutorial.tsx';
 import { OnboardManager, OnboardClub } from './screens/Onboard.tsx';
 import { ObCityScreen } from './screens/ObCity.tsx';
+import { ObLoading } from './onboard/ShotFrame.tsx';
+import { preloadShots } from './onboard/shots.ts';
 import { ObFriendsScreen } from './screens/onboard/ObFriends.tsx';
 import { ArchetypeScreen } from './screens/Archetype.tsx';
 // ONBOARD_V2 plan section 7: the prologue is its own chunk, fetched only when a new career actually enters it
@@ -261,6 +263,23 @@ export function App() {
     if (adminKey || !introDone || booted) return;
     track('title');
   }, [adminKey, introDone, booted]);
+
+  // 2.11 flow audit: a new player on the title is one tap from the prologue, so its code and
+  // first two stills come down while he reads the title, not after he taps (it was ~1s of empty
+  // gradient on a slow line). Returning players and the old flow never pay for it.
+  useEffect(() => {
+    if (!introDone || booted || saved !== null || !obV2Enabled()) return;
+    // waits for the title's own picture first (or 5s at most) so the two never fight over a slow line
+    const t0 = Date.now(); let t = 0;
+    const go = () => {
+      const busy = [...document.images].some(i => !i.complete);
+      if (busy && Date.now() - t0 < 5000) { t = window.setTimeout(go, 250); return; }
+      void import('./screens/onboard/Prologue.tsx').catch(() => {});
+      preloadShots(['s01-stadium', 's02-bench']);
+    };
+    t = window.setTimeout(go, 800);
+    return () => window.clearTimeout(t);
+  }, [introDone, booted, saved]);
   useEffect(() => {
     if (!booted || adminKey) return;
     const step = stepFor(gs);
@@ -388,7 +407,7 @@ export function App() {
         <OnboardClub gs={gs} onPick={(city, kit, pattern) => setGs(G.pickCity(gs, city, kit, pattern))} />
       )}
       {gs.phase === 'ob-prologue' && (
-        <Suspense fallback={<div className="ob-frame ob-full" style={{ background: 'var(--ob-night-grad)' }} />}>
+        <Suspense fallback={<ObLoading />}>
           <Prologue onDone={choice => setGs(toObCity(gs, choice))} />
         </Suspense>
       )}
