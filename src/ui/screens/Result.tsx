@@ -8,6 +8,7 @@ import { StadiumRevealOverlay } from './Stadium.tsx';
 import { fansAfterResult } from '../../game/fans.ts';
 import { isDerby } from '../../data/clubs.ts';
 import { Icon } from '../components/Icon.tsx';
+import { FIRST_PURSE } from '../../data/firstMatchText.ts';
 
 export function ResultScreen({ gs, onContinue }: { gs: G.GameState; onContinue: () => void }) {
   // a build that opened this round unveils itself over the result, once
@@ -60,7 +61,7 @@ export function ResultScreen({ gs, onContinue }: { gs: G.GameState; onContinue: 
           )}
         </div>
 
-        {gs.lastLedger && <Ledger l={gs.lastLedger} outlook={G.purseOutlook(gs)} />}
+        {gs.lastLedger && <Ledger l={gs.lastLedger} outlook={G.purseOutlook(gs)} first={G.isFirstMatch(gs)} />}
 
         <div className="tile">
           <div className="sub" style={{ marginBottom: 8 }}>רגעים מהמשחק</div>
@@ -109,7 +110,7 @@ const shekel = (n: number) => `${n < 0 ? '-' : ''}₪${Math.abs(n).toLocaleStrin
  * bleeds, and that is the point: it turns every result into a financial event
  * instead of a number that only ever grows.
  */
-function Ledger({ l, outlook }: { l: G.RoundLedger; outlook: { expected: number } | null }) {
+function Ledger({ l, outlook, first }: { l: G.RoundLedger; outlook: { expected: number } | null; first: boolean }) {
   const up = l.net >= 0;
   const rows: { label: string; value: number }[] = [
     { label: 'פרס מהמשחק', value: l.prize },
@@ -144,7 +145,8 @@ function Ledger({ l, outlook }: { l: G.RoundLedger; outlook: { expected: number 
       {/* DRAFT WORDING, Itzik's to correct */}
       {outlook && outlook.expected > 0 && (
         <div className="hint" style={{ margin: '9px 0 0' }}>
-          בסוף העונה ייכנסו עוד {shekel(outlook.expected)}, לפי המקום שלכם היום.
+          {/* the first match: one round in, "where you are today" is not a place yet (firstMatchText.ts) */}
+          {first ? FIRST_PURSE(shekel(outlook.expected)) : <>בסוף העונה ייכנסו עוד {shekel(outlook.expected)}, לפי המקום שלכם היום.</>}
         </div>
       )}
     </div>

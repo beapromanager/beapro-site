@@ -11,6 +11,7 @@
 
 import type { PressContext, PressQuestion, Outlet } from './press.ts';
 import { pickPressQuestion, fresh } from './press.ts';
+import { firstWording } from './firstMatchText.ts';
 import { PRESS_TIERS, inTier } from './leagueGate.ts';
 import type { Rng } from '../engine/matchEngine.ts';
 import type { FactKind, MatchFact } from './matchFacts.ts';
@@ -469,9 +470,11 @@ export function askableFacts(facts: MatchFact[]): MatchFact[] {
 export function pickPressQuestions(
   c: PressContext, rng: Rng, facts: MatchFact[] = [], recent: string[] = [],
 ): { outlet: Outlet; qs: PressQuestion[] } {
+  // the first match of a new-opening career: the same questions, in words that do not lean on a past (firstMatchText.ts)
+  const say = (q: PressQuestion) => (c.firstMatch ? firstWording(q, c) : q);
   const wide = pickPressQuestion(c, rng, recent);
   const usable = askableFacts(facts);
-  if (!usable.length) return { outlet: wide.outlet, qs: [wide.q] };
+  if (!usable.length) return { outlet: wide.outlet, qs: [say(wide.q)] };
 
   // the biggest story leads, but not invariably the very same one, so two
   // similar nights do not produce the identical press conference. And when
@@ -491,7 +494,7 @@ export function pickPressQuestions(
   };
   let pick = usable[rng() > 0.72 && usable.length > 1 ? 1 : 0];
   if (!unheard(pick)) pick = usable.find(unheard) ?? pick;
-  return { outlet: wide.outlet, qs: [fresh(pools(pick), c, rng, recent), wide.q] };
+  return { outlet: wide.outlet, qs: [say(fresh(pools(pick), c, rng, recent)), say(wide.q)] };
 }
 
 const BARE: PressContext = {

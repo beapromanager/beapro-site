@@ -55,6 +55,8 @@ export interface PressContext {
   youthStar: boolean;      // an academy-age boy was the best man on the pitch
   injuryTonight: boolean;  // one of mine went off hurt tonight
   allGoalsFirstHalf: boolean; // every goal of the night fell before the break
+  /** match 1 of a new-opening career: same questions, first-night words (firstMatchText.ts). Absent everywhere else */
+  firstMatch?: boolean;
 }
 
 export interface PressAnswer {

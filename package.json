@@ -96,7 +96,8 @@
     "check:onboardv2-quickstart": "node --experimental-strip-types scripts/onboardv2-quickstart-check.mts",
     "check:onboardv2-citypicker": "node --experimental-strip-types scripts/onboardv2-citypicker-check.mts",
     "check:onboardv2-friends": "node --experimental-strip-types scripts/onboardv2-friends-check.mts",
-    "check:prologue": "node --experimental-strip-types scripts/prologue-check.mts"
+    "check:prologue": "node --experimental-strip-types scripts/prologue-check.mts",
+    "check:firstmatch": "node --experimental-strip-types scripts/firstmatch-check.mts"
   },
   "dependencies": {
     "react": "^18.3.1",

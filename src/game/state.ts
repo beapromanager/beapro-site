@@ -95,6 +95,7 @@ import {
 } from './invite.ts';
 import type { InviteState } from './invite.ts';
 import { pickPressQuestions } from '../data/pressFacts.ts';
+import { FIRST_SCOUT_DERBY } from '../data/firstMatchText.ts';
 import { matchFacts } from '../data/matchFacts.ts';
 import { pickTrigger, rollChat } from '../data/chats.ts';
 import { fansAfterResult, fansDrift, fansAfterSeason, crowdMultiplier, FANS_STAR_SOLD } from './fans.ts';
@@ -3188,6 +3189,7 @@ export function fanContext(gs: GameState, timing: FanTiming): FanContext {
     club: club(gs).short,
     fans: gs.meters.fans,
     streak,
+    ...(isFirstMatch(gs) ? { firstMatch: true } : {}),
   };
 
   if (timing === 'post' && gs.lastPlayerMatch) {
@@ -3331,7 +3333,9 @@ export function matchupScout(gs: GameState): Scout | null {
   const pool = derby ? SCOUT_LINES.derby : SCOUT_LINES[verdict];
   // stable for this fixture, different from one round to the next, so the same
   // advice does not greet him fourteen weeks running
-  const line = pool[lineSeed(`${gs.season}|${gs.week}|${oppId}`) % pool.length];
+  const at = lineSeed(`${gs.season}|${gs.week}|${oppId}`) % pool.length;
+  // the first match has no table and no season behind it yet (firstMatchText.ts)
+  const line = (derby && isFirstMatch(gs) && FIRST_SCOUT_DERBY[at]) || pool[at];
 
   return { oppShort: oppClub.short, mine: Math.round(mine), opp: Math.round(opp), iAmHome, verdict, line };
 }
@@ -5138,6 +5142,14 @@ export function continueFromResult(gs: GameState): GameState {
   };
 }
 
+/**
+ * Match 1 of a new-opening career (Itzik, 2.11): a new man in his own town, a squad he met this week, no match
+ * before it and no table yet. The words around that one match come from firstMatchText.ts; nothing else changes.
+ */
+export function isFirstMatch(gs: GameState): boolean {
+  return !!gs.obV2 && gs.season === 1 && gs.week === 1;
+}
+
 /** The night as the reporter saw it, read off the result, the table and the ground. */
 export function pressContext(gs: GameState): PressContext | null {
   const r = gs.lastPlayerMatch;
@@ -5187,6 +5199,7 @@ export function pressContext(gs: GameState): PressContext | null {
     unbeatenBefore: (() => { const before = gs.form.slice(0, -1); let n = 0;
       for (let i = before.length - 1; i >= 0 && before[i] !== 'L'; i--) n++; return n; })(),
     winRun: (() => { let n = 0; for (let i = gs.form.length - 1; i >= 0 && gs.form[i] === 'W'; i--) n++; return n; })(),
+    ...(isFirstMatch(gs) ? { firstMatch: true } : {}),
     scoutHired: gs.scout.hiredSeason === gs.season,
     scoutManPlayed: (gs.scout.signedIds ?? []).some(id => (r.ratings?.[id] ?? 0) > 0),
     ...(() => {

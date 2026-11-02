@@ -14,6 +14,7 @@ import type { Rng, Approach } from '../engine/matchEngine.ts';
 import { FAN_TIERS, inTier } from './leagueGate.ts';
 import { OPENERS } from './openersText.ts';
 import { TOP_FAN_REWRITE, TOP_FAN_NEW } from './topFlightText.ts';
+import { FIRST_FAN } from './firstMatchText.ts';
 
 /** The head a fan watches football with. Drives which lines are his to say. */
 export type Voice =
@@ -82,6 +83,8 @@ export interface FanContext {
   scoreLine?: string;
   scorer?: string | null;
   streak?: number;        // losses in a row before this match
+  /** match 1 of a new-opening career: same lines, first-night words (firstMatchText.ts). Absent everywhere else */
+  firstMatch?: boolean;
   tablePos: number;
   totalTeams: number;
   /** how many league matches the club has played: before the league starts, and in its first rounds, there is no table to read (a context that leaves it out counts as mid-season) */
@@ -398,6 +401,12 @@ export function fanMessage(ctx: FanContext, rng: Rng, recent: string[] = []): Fa
 
   // ליגת העל has its own wording for part of the terrace (topFlightText.ts)
   const own = ctx.tier !== undefined && ctx.tier >= 5 ? TOP_FAN_REWRITE[line.id] : undefined;
+  // the first match of a new-opening career: the same line and fan, said without a past (firstMatchText.ts)
+  const first = ctx.firstMatch && !own ? FIRST_FAN[line.id] : undefined;
+  if (first) {
+    const say = first({ scoreLine: ctx.scoreLine ?? '', city: ctx.city, scorer: ctx.scorer, coldStriker: ctx.coldStriker, gripe: tacticGripe(ctx) });
+    return { fan, text: say[Math.floor(rng() * say.length)], id: line.id };
+  }
   return { fan, text: own ? own.text : line.text(ctx, rng), id: line.id };
 }
 
