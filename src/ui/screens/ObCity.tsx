@@ -16,7 +16,7 @@ import { ObArriveScreen } from './onboard/ObArrive.tsx';
 /**
  * Pick a city from the full list (same CITIES the rest of the game reads,
  * so this check and the UI never disagree about what is on screen), type an
- * optional name, confirm, meet the two who followed (ObArrive), and go
+ * optional name, confirm, one arrival beat (ObArrive), and go
  * straight to quickStart.
  */
 export function ObCityScreen({ onDone }: { onDone: (city: string, name: string) => void }) {

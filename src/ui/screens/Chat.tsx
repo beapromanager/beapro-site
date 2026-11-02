@@ -10,13 +10,13 @@ import { Icon } from '../components/Icon.tsx';
  * should not look like a game at all, it should look like your phone went off.
  */
 
-const WALLPAPER =
+export const WALLPAPER =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.04' stroke-width='2'%3E%3Ccircle cx='40' cy='36' r='11'/%3E%3Cpath d='M96 28h20v16H96z'/%3E%3Cpath d='M150 40l10-16 10 16z'/%3E%3Cpath d='M206 26v20M196 36h20'/%3E%3Cpath d='M28 96c8-8 20-8 28 0'/%3E%3Ccircle cx='120' cy='104' r='9'/%3E%3Cpath d='M172 94h22v18h-22z'/%3E%3Cpath d='M222 112l-9-16-9 16z'/%3E%3Cpath d='M44 168v20M34 178h20'/%3E%3Ccircle cx='104' cy='176' r='10'/%3E%3Cpath d='M156 166h20v18h-20z'/%3E%3Cpath d='M214 184c8-8 20-8 28 0'/%3E%3Ccircle cx='56' cy='232' r='8'/%3E%3Cpath d='M110 222l10 16 10-16z'/%3E%3Cpath d='M178 224v18M168 233h20'/%3E%3C/g%3E%3C/svg%3E\")";
 
 const SENDER_TINT = ['#7fb2e8', '#e8a86c', '#8ce8b4', '#e8879a', '#c9a3e8'];
 
 /** Kick off at a Friday teatime and let each message tick a minute or two on. */
-function clockFrom(week: number) {
+export function clockFrom(week: number) {
   let m = 17 * 60 + 12 + (week * 7) % 40;
   return () => {
     const s = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
@@ -145,7 +145,7 @@ export function ChatScreen({ gs, onDone, onAnswer }: {
   );
 }
 
-function Bubble({ name, text, time, group, senders, first }: {
+export function Bubble({ name, text, time, group, senders, first }: {
   name: string; text: string; time: string; group: boolean; senders: string[]; first: boolean;
 }) {
   const mine = name === '';
@@ -192,7 +192,7 @@ function Ticks() {
   );
 }
 
-function TypingBubble() {
+export function TypingBubble() {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 8 }}>
       <div style={{

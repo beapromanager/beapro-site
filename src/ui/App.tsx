@@ -12,6 +12,7 @@ import { IntroCinematic } from './screens/Intro.tsx';
 import { Tutorial } from './components/Tutorial.tsx';
 import { OnboardManager, OnboardClub } from './screens/Onboard.tsx';
 import { ObCityScreen } from './screens/ObCity.tsx';
+import { ObFriendsScreen } from './screens/onboard/ObFriends.tsx';
 import { ArchetypeScreen } from './screens/Archetype.tsx';
 // ONBOARD_V2 plan section 7: the prologue is its own chunk, fetched only when a new career actually enters it
 const Prologue = lazy(() => import('./screens/onboard/Prologue.tsx').then(m => ({ default: m.Prologue })));
@@ -41,7 +42,7 @@ import { CupBracketScreen } from './screens/CupBracket.tsx';
 import { YouthScreen } from './screens/Youth.tsx';
 import { AcademyScreen } from './screens/Academy.tsx';
 import { YOUTH_V2 } from '../game/academy.ts';
-import { obV2Enabled, newGameV2, toObCity, quickStart } from '../game/onboardV2.ts';
+import { obV2Enabled, newGameV2, toObCity, quickStart, answerFriends } from '../game/onboardV2.ts';
 import { ScoutScreen } from './screens/Scout.tsx';
 import { YouthDecisionScreen } from './screens/YouthDecision.tsx';
 import { NoticeScreen } from './screens/Notice.tsx';
@@ -595,6 +596,14 @@ export function App() {
       {gs.phase === 'cup-bracket' && <CupBracketScreen gs={gs} onBack={() => setGs(G.backToHub(gs))} />}
       {gs.phase === 'result' && <ResultScreen gs={gs} onContinue={() => setGs(G.continueFromResult(gs))} />}
       {gs.phase === 'press' && <PressScreen key={gs.press?.q.text} gs={gs} onPick={i => setGs(g => G.pickPressAnswer(g, i))} onNext={() => setGs(g => G.continuePress(g))} />}
+      {/* after match 1 of a quick-started career, once: יוסי and דוד ask to follow him down.
+          Yes/no reuse the old names-card marks, fixed strings, nothing typed leaves the phone */}
+      {gs.phase === 'ob-friends' && (
+        <ObFriendsScreen
+          mgr={gs.profile.nickname.trim() || gs.profile.name.trim().split(/\s+/)[0] || 'המאמן'}
+          week={gs.week}
+          onDone={join => { obMark(join ? 'ob_names' : 'ob_names_skip'); setGs(g => answerFriends(g, join)); }} />
+      )}
       {gs.phase === 'chat' && <ChatScreen gs={gs} onDone={() => setGs(G.closeChat(gs))} onAnswer={i => setGs(g => G.answerMateChat(g, i))} />}
       {installOpen && <InstallSheet onClose={() => setInstallOpen(false)} />}
       {exitOpen && <ExitSheet onStay={() => setExitOpen(false)} onLeave={() => { setExitOpen(false); leaveGame(); }} />}

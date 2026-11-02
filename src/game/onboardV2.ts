@@ -9,6 +9,7 @@
 import {
   newGame, club, mySquad, MAX_SQUAD,
   setProfile, pickCity, setArchetype, afterSigning, enterPreseason, finishPreseason, startWeek,
+  obFriendsDue, leaveObFriends,
 } from './state.ts';
 import type { GameState } from './state.ts';
 import { makeStoryFriend, storyLevel, STORY_SPECS, STORY_CONTRACT_YEARS } from './friends.ts';
@@ -73,6 +74,11 @@ function weakestStarterIndex(starters: Player[], position: Player['position']): 
   return pool.reduce((lo, i) => (overall(starters[i]) < overall(starters[lo]) ? i : lo), pool[0]);
 }
 
+/** The story's two, by STORY_SPECS order: the midfielder (the texter) and the striker. Fixed, never typed. */
+export const STORY_FIRST_NAMES = ['יוסי', 'דוד'] as const;
+/** Only if the drawn surname would make a name the squad already has. */
+const STORY_SPARE_SURNAMES = ['לוי', 'מזרחי', 'פרץ', 'ביטון', 'אוחיון', 'אזולאי', 'דהן', 'חדד'];
+
 /**
  * T3: the two players who come with you (plan section 4). Generated a grade
  * above the division, straight into the starting XI in place of its weakest
@@ -91,6 +97,17 @@ export function addStoryFriends(gs: GameState): GameState {
   const sq = mySquad(gs);
   const taken = new Set([...sq.starters, ...sq.bench].map(p => p.name));
   const made = STORY_SPECS.map(spec => makeStoryFriend(spec, level, nextPlayerId(), rng, taken));
+  // the names are the story's own (Itzik, 2.11): יוסי the midfielder, who texts, and דוד the striker.
+  // Only the first name is fixed; the surname is the one the generator drew, so the squad, the
+  // commentary and surnameOf all carry on as before. Renaming never reseeds (friends.ts), so the
+  // overall is exactly what the generator made.
+  for (let i = 0; i < made.length; i++) {
+    const drawn = made[i].name.split(' ').slice(1).join(' ');
+    const pool = [drawn, ...STORY_SPARE_SURNAMES].filter(Boolean);
+    const surname = pool.find(sn => !taken.has(`${STORY_FIRST_NAMES[i]} ${sn}`)) ?? drawn;
+    made[i] = { ...made[i], name: `${STORY_FIRST_NAMES[i]} ${surname}`.trim() };
+    taken.add(made[i].name);
+  }
 
   let starters = [...sq.starters];
   const displaced: Player[] = [];
@@ -150,15 +167,40 @@ export function quickStart(gs: GameState, city: string, name?: string): GameStat
   gs = pickCity(gs, city, traditionKit(city), 'solid');
   gs = setArchetype(gs, 'mental');
   gs = afterSigning(gs, {});
-  // enterPreseason before addStoryFriends: it reads "is this the squad's
-  // first ever contract round" off an empty gs.contracts, which is only true
-  // before the two story friends' five-year deals go in. The other way round
-  // would quietly hand every inherited player a flat three-year deal instead
-  // of enterPreseason's own 1..3 year seedContract spread.
+  // enterPreseason seeds every inherited player's 1..3 year deal off an empty
+  // gs.contracts ("the squad's first ever contract round"); the story friends'
+  // five-year deals only go in after match 1 (answerFriends), so that spread
+  // stays exactly what it was.
   gs = enterPreseason(gs);
-  gs = addStoryFriends(gs);
+  // the two story friends are NOT in the squad for match 1 any more (Itzik, 2.11): they ask to come
+  // after it, in the friends scene (ob-friends), and only a yes puts them in (answerFriends below)
   gs = finishPreseason(gs);   // the three summer rounds, skipped; nobody expires in year one anyway
   gs = { ...gs, phase: 'hub', tutorialSeen: true };   // sponsor deferred (T4+): stays null, same as everywhere else
-  if (gs.obV2) gs = { ...gs, obV2: { ...gs.obV2, namesDue: true } };   // names asked after match 1 (T6)
+  if (gs.obV2) gs = { ...gs, obV2: { ...gs.obV2, friendsScene: 'due' } };   // the friends scene after match 1
   return startWeek(gs);
+}
+
+/**
+ * The friends scene's answer, once. Yes: יוסי and דוד sign (addStoryFriends,
+ * so every gs.friends protection applies to them from here on), the old flow's
+ * mate_first_start is dropped for good (its "before my first start" text never
+ * fits two men who just left the לאומית), and the scene itself counts as his
+ * last message so the phone keeps its usual gap. No: nobody is added, ever.
+ * Either way the week then ends as closeChat would end it (sponsor, then hub).
+ */
+export function answerFriends(gs: GameState, join: boolean): GameState {
+  if (gs.phase !== 'ob-friends' || !obFriendsDue(gs) || !gs.obV2) return gs;
+  let out: GameState = { ...gs, obV2: { ...gs.obV2, friendsScene: join ? 'joined' : 'declined' } };
+  if (join) {
+    out = addStoryFriends(out);
+    out = {
+      ...out,
+      mate: {
+        ...out.mate,
+        seen: out.mate.seen.includes('mate_first_start') ? out.mate.seen : [...out.mate.seen, 'mate_first_start'],
+        lastWeek: out.week,
+      },
+    };
+  }
+  return leaveObFriends(out);
 }

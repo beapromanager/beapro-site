@@ -505,7 +505,8 @@ export function stepFor(g: { phase: string; season: number; week: number }): Ste
     // already said by startNew, so nothing here (falling through to 'season' would count a stranger as in the league)
     case 'ob-prologue':
     case 'ob-city': return null;
-    case 'ob-names': return 'round_1';
+    case 'ob-names':
+    case 'ob-friends': return 'round_1';   // match 1 is on the books: the friends scene comes after it
     case 'onboard-club': return 'manager';
     case 'onboard-archetype': return 'club';
     case 'signing': return 'archetype';

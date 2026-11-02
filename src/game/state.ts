@@ -150,7 +150,9 @@ export type Phase =
   | 'cup-match' | 'cup-pens'
   | 'cup-draw' | 'cup-bracket'
   /* ONBOARD_V2 (plan T1): the rebuilt first run, behind the flag in onboardV2.ts */
-  | 'ob-prologue' | 'ob-city' | 'ob-names';
+  | 'ob-prologue' | 'ob-city' | 'ob-names'
+  /* the phone after match 1 of a quick-started career: יוסי and דוד ask to follow him down (onboardV2.ts) */
+  | 'ob-friends';
 
 export type MarketLine = 'gk' | 'def' | 'mid' | 'atk';
 
@@ -351,7 +353,15 @@ export interface GameState {
    * every save written before it, and on any career started with the flag off:
    * the field is optional precisely so the loader never has to invent one.
    */
-  obV2?: { choice: 'bench' | 'bottle' | null; namesDue: boolean; deferred: { kit: boolean; arch: boolean; market: boolean }; t0: number };
+  obV2?: {
+    choice: 'bench' | 'bottle' | null; namesDue: boolean; deferred: { kit: boolean; arch: boolean; market: boolean }; t0: number;
+    /**
+     * The friends scene after match 1 (Itzik, 2.11): 'due' is set by quickStart only, so a save from
+     * before it (no field at all, and its two story friends already in the squad) never sees the scene;
+     * 'joined' / 'declined' is what he answered, and either one means it is never shown again.
+     */
+    friendsScene?: 'due' | 'joined' | 'declined';
+  };
   seasonSeed: number;
   clubId: string;
   profile: ManagerProfile;
@@ -5564,6 +5574,8 @@ function winterMarket(gs: GameState, next: number): FreeAgent[] {
  */
 /** Carry on into the press room and the rest of the week. */
 export function advancePastPress(gs: GameState): GameState {
+  // ONBOARD_V2: after match 1 of a quick-started career the phone is יוסי and דוד's, once, before anything else
+  if (obFriendsDue(gs)) return { ...gs, phase: 'ob-friends', press: null, chat: null, chatAnswers: null };
   const r = gs.lastPlayerMatch;
   const fx = playerFixture(gs);
   if (!r || !fx) return endOfWeek(gs);
@@ -5760,6 +5772,24 @@ export function answerMateChat(gs: GameState, index: number): GameState {
       break;
   }
   return out;
+}
+
+/**
+ * ONBOARD_V2: is the friends scene owed right now. Only a career quickStart
+ * marked 'due' (never a save from before it), only after match 1 of season 1,
+ * and only while nobody is in gs.friends yet.
+ */
+export function obFriendsDue(gs: GameState): boolean {
+  return gs.obV2?.friendsScene === 'due' && gs.season === 1 && gs.week === 1 && gs.friends.length === 0;
+}
+
+/**
+ * The friends scene is answered (onboardV2.answerFriends has already put the
+ * two in, or not): the week ends exactly the way closeChat would end it.
+ */
+export function leaveObFriends(gs: GameState): GameState {
+  if (gs.phase !== 'ob-friends') return gs;
+  return endOfWeek({ ...gs, chatAnswers: null });
 }
 
 /** The player closed the phone, now the week can end. */
