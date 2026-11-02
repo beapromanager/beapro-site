@@ -91,7 +91,10 @@ export function ResultScreen({ gs, onContinue }: { gs: G.GameState; onContinue: 
 
         <MiniTable gs={gs} highlight={gs.clubId} rows={5} />
 
-        <button className="btn" onClick={onContinue}>לחדר העיתונאים ‹</button>
+        {/* 2.11 (Itzik): docked at the bottom like the kickoff, the way on is visible without scrolling */}
+        <div className="cta-dock">
+          <button className="btn" onClick={onContinue}>לחדר העיתונאים ‹</button>
+        </div>
       </div>
 
       {reveal && <StadiumRevealOverlay reveal={reveal} onDone={() => setReveal(null)} />}

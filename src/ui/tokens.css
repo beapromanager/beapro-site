@@ -788,6 +788,17 @@ html.title-locked, html.title-locked body{position:fixed; inset:0; width:100%; h
 .hub-sticky[data-on="1"]{transform:translateY(0); opacity:1; pointer-events:auto;}
 .hub-sticky .btn{animation:none;}
 
+/* ---- the screen's one way on, docked to the bottom of the viewport (tactic, result; 2.11).
+   Sticky, not fixed: it stays the last thing in the flow, so at the end of the page it sits
+   under the content instead of over it, and it needs no reserved padding. It spans the
+   screen's 16px side padding and eats its bottom padding, and clears the home indicator. */
+.cta-dock{
+  position:sticky; bottom:0; z-index:30;
+  margin:0 -16px -16px;
+  padding:12px 16px calc(14px + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(180deg,transparent,rgba(6,10,8,.86) 32%,var(--bg));
+}
+
 @media (prefers-reduced-motion:reduce){
   .hub-sticky{transition:opacity var(--t-fast) linear; transform:none;}
   .hub-cell:active,.goal:active,.inbox-strip:active{transform:none;}

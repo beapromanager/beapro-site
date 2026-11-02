@@ -14,6 +14,7 @@ import { OnboardManager, OnboardClub } from './screens/Onboard.tsx';
 import { ObCityScreen } from './screens/ObCity.tsx';
 import { ObLoading } from './onboard/ShotFrame.tsx';
 import { preloadShots } from './onboard/shots.ts';
+import { warmCelebrate } from './components/CoachGuide.tsx';
 import { ObFriendsScreen } from './screens/onboard/ObFriends.tsx';
 import { ArchetypeScreen } from './screens/Archetype.tsx';
 // ONBOARD_V2 plan section 7: the prologue is its own chunk, fetched only when a new career actually enters it
@@ -192,6 +193,8 @@ export function App() {
     if (!booted || adminKey || !gs.obV2) return;
     if (gs.phase === 'match' && gs.season === 1 && gs.week === 1) obMark('ob_kickoff');
   }, [booted, adminKey, gs.obV2, gs.phase, gs.season, gs.week]);
+  // the result screen's win clip comes down during the match, not after the final whistle (2.11)
+  useEffect(() => { if (gs.phase === 'match') warmCelebrate(); }, [gs.phase]);
 
   /**
    * The phone's back button, wired to whatever "back" means on this screen.

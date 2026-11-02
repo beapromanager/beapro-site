@@ -18,6 +18,18 @@ const FACE: Record<Who, { video: string; poster: string; name: string }> = {
 };
 
 /**
+ * Asks for the win clip once, while a match is being played, so a win's result
+ * screen does not open on an empty box on a slow line (2.11). 74KB, the HTTP
+ * cache keeps it; a failure is silent and the <video> simply fetches as before.
+ */
+let celebrateWarm = false;
+export function warmCelebrate() {
+  if (celebrateWarm || typeof fetch === 'undefined') return;
+  celebrateWarm = true;
+  fetch(asset('/coach/celebrate.mp4')).catch(() => {});
+}
+
+/**
  * The coach mid-celebration, the shouting fist-pump version, for a win. Same
  * character as the guide, kept for exactly this moment.
  */

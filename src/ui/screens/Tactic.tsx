@@ -31,7 +31,7 @@ export function TacticScreen({ gs, onSet, onGo }: {
   return (
     <>
       <Meters {...gs.meters} gems={gs.gems} />
-      <div className="screen pad stack pad-b" style={{ gap: 16 }}>
+      <div className="screen pad stack" style={{ gap: 16 }}>
         <div className="row" style={{ marginTop: 2, gap: 10 }}>
           <Icon name="clipboard" size={22} color="var(--gold)" />
           <div style={{ flex: 1 }}>
@@ -91,9 +91,13 @@ export function TacticScreen({ gs, onSet, onGo }: {
         <AssistantNote gs={gs} options={APPROACH.map(a => a.label)} salt={1} />
 
         <div className="spacer" />
-        <button className="btn" onClick={onGo}>
-          <Icon name="whistle" size={18} /> שריקת פתיחה
-        </button>
+        {/* 2.11 (Itzik): the kickoff rides the bottom of the screen, so it is there without scrolling
+            on a small phone; it still sits last in the flow, so nothing ends up hidden under it */}
+        <div className="cta-dock">
+          <button className="btn" onClick={onGo}>
+            <Icon name="whistle" size={18} /> שריקת פתיחה
+          </button>
+        </div>
       </div>
     </>
   );
