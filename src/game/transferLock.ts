@@ -16,6 +16,26 @@ export const STATUS_KEY = 'beapro.xfer.v1';
 export const MOVED_WEEKEND_MSG = 'הקריירה עברה ל-beapro.co.il, ליגת השכונה ממשיכה שם';
 export const MOVED_PRIZE_MSG = 'הקריירה עברה ל-beapro.co.il, הפרס מחכה שם';
 
+/** the game's own addresses (3.11: the game lives only here) */
+export const NEW_HOSTS: readonly string[] = ['https://beapro.co.il', 'https://www.beapro.co.il'].map(o => new URL(o).hostname);
+/**
+ * Any host that is not the game's own address, and not a developer's machine: the old github.io address, or anything
+ * else that serves the build. There nobody starts a new career (Itzik, 3.11); a career already there plays on.
+ */
+export function isOldDomain(hostname: string, dev = false): boolean {
+  const h = hostname.toLowerCase();
+  if (dev || !h) return false;
+  if (NEW_HOSTS.includes(h)) return false;
+  if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1' || h.endsWith('.localhost') || /^(10|192\.168)\./.test(h)) return false;
+  return true;
+}
+export function isOldDomainHere(): boolean {
+  try {
+    const dev = !!(import.meta as { env?: { DEV?: boolean } }).env?.DEV;
+    return typeof location !== 'undefined' && isOldDomain(location.hostname, dev);
+  } catch { return false; }
+}
+
 /** the old address's note says the new address acknowledged the career */
 export function movedAway(store: { getItem(k: string): string | null }): boolean {
   try {

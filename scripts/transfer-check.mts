@@ -686,7 +686,8 @@ let measured = { careerChars: 0, codeChars: 0, codeKB: 0, fileChars: 0 };
   // the receiver marker the old address looks for, and nothing that would attach the domain
   claim(existsSync('public/xfer.json') && JSON.stringify(JSON.parse(readFileSync('public/xfer.json', 'utf8'))) === '{"receiver":1}', 'public/xfer.json is not {"receiver":1}');
   claim(!existsSync('public/CNAME'), 'a CNAME file is in the build');
-  claim(T.TRANSFER_OFFER === true, 'the offer is switched off');
+  // Itzik, 3.11: the move between the addresses is cancelled; the offer stays in the code, switched off
+  claim(T.TRANSFER_OFFER === false, 'the offer to move the career is switched on');
   claim(T.RECEIVER_URL === 'https://beapro.co.il/xfer.json', `the receiver url is ${T.RECEIVER_URL}`);
 }
 

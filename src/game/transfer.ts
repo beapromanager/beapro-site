@@ -27,7 +27,7 @@ export const TARGET_ORIGIN = 'https://beapro.co.il';
 /** the new address says "I can receive" by serving this file (public/xfer.json) */
 export const RECEIVER_URL = `${TARGET_ORIGIN}/xfer.json`;
 /** the kill switch: false and the old address never offers anything */
-export const TRANSFER_OFFER = true;
+export const TRANSFER_OFFER = false;   // Itzik, 3.11: the move between the addresses is cancelled; the code stays, switched off
 /** how long the old address waits for the new one to answer before it offers the file and the code */
 export const READY_TIMEOUT_MS = 20_000;
 /** how long the probe of the new address may take */

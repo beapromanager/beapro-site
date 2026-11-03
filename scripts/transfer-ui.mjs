@@ -27,6 +27,10 @@ import path from 'node:path';
 import os from 'node:os';
 import * as T from '../src/game/transfer.ts';
 
+// Itzik, 3.11: the move between the addresses is cancelled and the offer is switched off (TRANSFER_OFFER false). This
+// check walks the offer in a browser, so with the offer off there is nothing for it to walk; check:olddomain-ui walks
+// what the old address does now. Switch the offer back on and this check runs again as it was.
+if (!T.TRANSFER_OFFER) { console.log('OFF: the transfer offer is switched off (TRANSFER_OFFER false, 3.11); nothing to walk. See check:olddomain-ui.'); process.exit(0); }
 const PW_DIR = process.env.PW_DIR;
 let pw = null;
 if (PW_DIR) {

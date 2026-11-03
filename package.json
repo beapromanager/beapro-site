@@ -102,7 +102,9 @@
     "check:ops": "node --experimental-strip-types scripts/ops-check.mts",
     "check:ops-ui": "node scripts/ops-ui.mjs",
     "check:transfer": "node --experimental-strip-types scripts/transfer-check.mts",
-    "check:transfer-ui": "node --experimental-strip-types scripts/transfer-ui.mjs"
+    "check:transfer-ui": "node --experimental-strip-types scripts/transfer-ui.mjs",
+    "check:olddomain": "node --experimental-strip-types scripts/old-domain-check.mts",
+    "check:olddomain-ui": "node scripts/old-domain-ui.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

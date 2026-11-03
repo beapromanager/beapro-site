@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Portal } from './Portal.tsx';
 import {
-  TARGET_ORIGIN, CODE_SOFT_LIMIT, READY_TIMEOUT_MS, REASON_TEXT, currentRole, buildPayload, encodeCode, fileNameFor, fileText,
+  TARGET_ORIGIN, CODE_SOFT_LIMIT, READY_TIMEOUT_MS, REASON_TEXT, TRANSFER_OFFER, currentRole, buildPayload, encodeCode, fileNameFor, fileText,
   parseImportText, applyTransfer, applyRestore, backupCareer, currentCareer,
   type Question, type ReceiverState, type SenderState, type Reason,
 } from '../../game/transfer.ts';
 import type { SaveSummary } from '../../game/save.ts';
 import { savedSummary } from '../../game/save.ts';
+import { isOldDomainHere } from '../../game/transferLock.ts';
 import {
   BOOT_NONCE, transferStore, receiverReady, sendNow, senderNow, onSender, countOffer, isPutOff, putOffNow, onPutOff, sentStatus,
   startReceiver, isStandalone,
@@ -302,6 +303,22 @@ export function TransferBanner({ where }: { where: Where }) {
   const showOffer = have && !sent && ready && !off;
   useEffect(() => { if (showOffer && s.phase === 'idle') countOffer(); }, [showOffer, s.phase]);
 
+  // the offer is switched off (Itzik, 3.11): the old address says in one quiet line that the game moved and the career
+  // stays; the new address keeps only the way back from a backup, for a career that did move before the switch
+  if (!TRANSFER_OFFER && role !== 'new') {
+    if (where !== 'title' || !isOldDomainHere() || savedSummary() === null) return null;
+    if (sent) return (
+      <div className={`xf-card xf-done ${where}`} role="status">
+        <span>הקריירה הועברה ל-<bdi dir="ltr">beapro.co.il</bdi> · </span>
+        <a href={CAREER_URL}>לשחק שם</a>
+      </div>
+    );
+    return (
+      <div className={`xf-card xf-done ${where}`} role="status" data-testid="moved-line">
+        המשחק עבר ל-<bdi dir="ltr">beapro.co.il</bdi>. הקריירה שלך נשארת כאן.
+      </div>
+    );
+  }
   if (role === 'new') {
     if (where !== 'title') return null;
     // what a transfer replaced is still here, one slot: the way back is offered only while there is a career in it
@@ -315,7 +332,7 @@ export function TransferBanner({ where }: { where: Where }) {
     return (
       <>
         <div className="xf-links">
-          <button className="xf-link" onClick={() => setImportOpen(true)}>ייבוא קריירה</button>
+          {TRANSFER_OFFER && <button className="xf-link" onClick={() => setImportOpen(true)}>ייבוא קריירה</button>}
           {hasBackup && <button className="xf-link" onClick={restore}>שחזור מהגיבוי</button>}
         </div>
         {restoreErr && <p className="xf-err" role="alert">{REASON_TEXT[restoreErr]}</p>}

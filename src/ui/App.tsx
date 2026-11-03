@@ -73,6 +73,8 @@ import { scrollToTop } from './scroll.ts';
 import { track, stepFor, flush, flushOnLeaving, reached, wonLeague, moneyMark, euroMark, cupMark, giftMark, dailyMark, obMark, xferMark, STEP_ORDER } from '../game/telemetry.ts';
 import { OWNER_VISIT } from './ownerVisit.ts';
 import { TransferGate } from './components/TransferUi.tsx';
+import { MovedScreen, movedTarget } from './screens/Moved.tsx';
+import { isOldDomainHere } from '../game/transferLock.ts';
 import { peekArrival, markEntered, tellArrival } from './transferWire.ts';
 import { currentRole } from '../game/transfer.ts';
 import { armBack, setBackHandler, leaveGame } from './back.ts';
@@ -113,6 +115,9 @@ function AppInner() {
   // title screen, which is alive on its own (Itzik, 12.10: the film for the first visit, the living picture for everyone).
   // (a career that has just arrived from the other address is a saved career, so this already skips the cold open for it)
   const [introDone, setIntroDone] = useState(() => savedSummary() !== null);
+  // the old address (Itzik, 3.11): no new career there. With none saved it is only the way to beapro.co.il, read once
+  // on load so an invite's ?league=CODE goes along before the address is tidied
+  const [moved, setMoved] = useState<string | null>(() => (isOldDomainHere() && savedSummary() === null ? movedTarget(location.search) : null));
   const [booted, setBooted] = useState(arrived !== null);            // still on the title screen
   // the daily gift: the table open, and the celebration of the gift just taken (the reveal of a pack waits for it)
   const [dailyOpen, setDailyOpen] = useState(false);
@@ -354,6 +359,7 @@ function AppInner() {
    * sacking) is not put through the film again and lands straight on the city picker, still the quick start.
    */
   function startNew(veteran = saved !== null) {
+    if (isOldDomainHere()) { setMoved(movedTarget(location.search)); return; }
     track('career_new');
     clearCareer();
     setSaved(null);
@@ -379,6 +385,14 @@ function AppInner() {
     setBooted(true);
   }
   function continueCareer() { bootCareer(); }
+
+  if (moved) {
+    return (
+      <div className="frame">
+        <MovedScreen href={moved} />
+      </div>
+    );
+  }
 
   if (!introDone) {
     return (
