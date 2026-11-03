@@ -112,3 +112,23 @@ th{font-size:12px; color:var(--dim); font-weight:700}
 .sec .seg{flex-wrap:wrap; align-self:flex-start}
 td .opt{font-size:11px; margin-inline-start:4px}
 .mini.hl .v{color:var(--gold)}
+
+/* ---- tabs, and the weekend league's tab */
+.tabs{display:flex; gap:4px; flex:1 1 100%; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:3px}
+.tabs button{flex:1 1 0; min-height:44px; border-radius:9px; font-weight:800; color:var(--dim)}
+.tabs button[aria-selected="true"]{background:var(--gold); color:#1b1305}
+.tl{list-style:none; margin:0; padding:0; display:grid; gap:8px}
+.tl li{display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; font-size:14px}
+.tl .dot{width:12px; height:12px; border-radius:50%; border:2px solid var(--line); flex:none}
+.tl .past .dot{background:var(--good); border-color:var(--good)}
+.tl .next .dot{background:var(--gold); border-color:var(--gold)}
+.tl .past{color:var(--dim)}
+.tl .next .what{font-weight:800}
+.badge.goodb{background:var(--good); color:#06210f}
+.days.wk{height:140px}
+.days.wk .day{position:relative; align-items:center}
+.days.wk .cnt{font-size:12px; color:var(--dim)}
+.days.wk .today .n{background:var(--good)}
+tr.warn td:first-child{border-inline-start:3px solid var(--warn)}
+tr.bad td:first-child{border-inline-start:3px solid var(--bad)}
+td.nw{white-space:nowrap}

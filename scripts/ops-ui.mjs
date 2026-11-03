@@ -11,13 +11,15 @@
  *   3. a wrong key: "המפתח לא נכון", nothing kept; "צא" forgets the key and the numbers
  *   4. 390 wide: right to left, no sideways scroll, every section has a heading
  *   5. the game with an old /?admin= link: the address is scrubbed and nothing asks /stats
+ *   6. the weekend league's tab: loaded only when opened, no new ask of /stats, every answer it can get (v2 registering,
+ *      v2 playing, v1, not wired, a timeout) drawn at 390 wide with its own words, and back to "כללי"
  */
 import { createRequire } from 'node:module';
 import { readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
-import { MOCK_KEY, basic, full, withWeekend } from './ops-fixture.mjs';
+import { MOCK_KEY, basic, full, withWeekend, weekendV2, weekendErr } from './ops-fixture.mjs';
 
 const PW_DIR = process.env.PW_DIR;
 let pw = null;
@@ -205,6 +207,50 @@ for (const [name, answer] of [['full', full], ['weekend', withWeekend]]) {
   ok(!(await page.locator('body').innerText()).includes('דשבורד'), 'the game shows a dashboard');
   ok(await page.evaluate(k => !JSON.stringify({ ...localStorage }).includes(k) && !JSON.stringify({ ...sessionStorage }).includes(k), MOCK_KEY), 'the game stored the key');
   await shot(page, '09-game-after-admin-link-390');
+  await w.ctx.close();
+}
+
+/* 6. the weekend league's tab */
+const WORLDS = [
+  ['reg', () => weekendV2('reg'), ['ההרשמה ננעלת', 'הרשמות לפי יום', 'מבקרים מול נרשמים', 'לפחות', 'לא נמדד', 'חברים 1', 'פתוחה 5', 'חסר', 'סבבים קודמים', '36']],
+  ['play', () => weekendV2('play'), ['משחקים', 'תקוע', 'שיחק העוזר', 'ליגות שבוטלו', 'יהלומים בפרסים', '130', 'יצירת משחק נכשלה']],
+  ['v1', withWeekend, ['37', 'דורש את עדכון השרתים של הליגה']],
+  ['unwired', full, ['עוד לא מחובר', 'WEEKEND_STATS_SECRET']],
+  ['timeout', () => weekendErr('timeout'), ['לא ענה בזמן']],
+];
+let n = 10;
+for (const [name, answer, words] of WORLDS) {
+  const w = await newWorld({ worker: 'patched', answer });
+  const page = await openOps(w);
+  await login(page);
+  await page.locator('.cards').waitFor({ timeout: 20000 });
+  const lazyBefore = w.st.seen.some(q => /ops-WeekendTab-/.test(q.url));
+  await page.getByRole('tab', { name: 'ליגת סופ״ש' }).click();
+  await page.locator('[role=tab][aria-selected=true]', { hasText: 'ליגת סופ״ש' }).waitFor();
+  await page.locator('main .sec').first().waitFor({ timeout: 20000 });
+  await page.waitForTimeout(300);
+  ok(!lazyBefore && w.st.seen.some(q => /ops-WeekendTab-/.test(q.url)), `weekend ${name}: the tab was not loaded on opening it`);
+  ok(w.st.statsAsks.length === 1, `weekend ${name}: opening the tab asked /stats again`);
+  ok(await page.getByRole('radiogroup', { name: 'טווח זמן' }).count() === 0, `weekend ${name}: the range shows on the weekend tab`);
+  await layout(page, `weekend ${name}`);
+  const text = await page.locator('main').innerText();
+  for (const t of words) ok(text.includes(t), `weekend ${name}: "${t}" not shown`);
+  ok(!/K7Q2ZZ|lg_|dev_|@/.test(text), `weekend ${name}: something like a code, id or email shown`);
+  if (name === 'unwired' || name === 'timeout') ok(!/\d{2,}/.test(text.replace(/WEEKEND_STATS_SECRET|beapro-\w+/g, '')), `weekend ${name}: numbers drawn without the league's answer`);
+  if (name === 'reg') {
+    await shot(page, `${n++}-weekend-reg-top-390`);
+    await shot(page, `${n++}-weekend-reg-full-390`, true);
+  } else await shot(page, `${n++}-weekend-${name}-390`, true);
+  await keyNowhere(page, w, `weekend ${name}`, { allowQueryToStats: false });
+  await page.getByRole('tab', { name: 'כללי' }).click();
+  await page.getByRole('radiogroup', { name: 'טווח זמן' }).waitFor();
+  ok((await page.locator('main').innerText()).includes('ליגת סוף השבוע'), `weekend ${name}: back to "כללי" lost the dashboard`);
+  if (name === 'reg') {
+    await page.getByRole('button', { name: /לכל המספרים של הליגה/ }).click();
+    await page.locator('[role=tab][aria-selected=true]', { hasText: 'ליגת סופ״ש' }).waitFor();
+    ok((await page.locator('main').innerText()).includes('מבקרים מול נרשמים'), 'weekend: the pointer on "כללי" does not open the tab');
+  }
+  ok(w.errors.length === 0, `weekend ${name} page errors: ${w.errors.join(' | ')}`);
   await w.ctx.close();
 }
 

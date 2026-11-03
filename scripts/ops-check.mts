@@ -8,6 +8,9 @@
  *   5. buildView on made-up answers: the old shape (basic) and the patched one (full), today vs yesterday, the biggest fall
  *   6. the key: header first, ?key= when the old Worker refuses the header, a wrong key is forgotten, nothing goes elsewhere
  *   7. the service worker does not cache or answer anything (so /ops/ is never served stale to a player or kept offline)
+ *   8. the weekend league's tab: buildWeekend on every answer it can get (none, not wired, an error, v1, v2 while
+ *      registering and while playing), no fake zero, no name, the visitor share only as a lower bound, and the tab is a
+ *      lazy ops- file of its own that imports nothing of the game
  *   node --experimental-strip-types scripts/ops-check.mts
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
@@ -16,7 +19,8 @@ import { STEPS, OB_MARKS, CUP_MARKS, EURO_MARKS, GIFT_MARKS, SHARE_MARKS, DAILY_
 import { labelOf, OB_NOT_SENT_YET, OB_LABEL } from '../src/ops/labels.ts';
 import { buildView, worstFall, road } from '../src/ops/model.ts';
 import * as api from '../src/ops/api.ts';
-import { MOCK_KEY, NOW, basic, full, withWeekend } from './ops-fixture.mjs';
+import { buildWeekend } from '../src/ops/weekend.ts';
+import { MOCK_KEY, NOW, basic, full, withWeekend, weekendV2, weekendErr, WK, WK_NOW } from './ops-fixture.mjs';
 
 const fails: string[] = [];
 let checked = 0;
@@ -65,9 +69,15 @@ if (existsSync('dist/index.html')) {
   ok(gameJs.length > 0 && gameJs.every(f => !f.startsWith('ops')), `the game loads ${gameJs.join(', ')}`);
   for (const f of assets.filter(f => f.endsWith('.js') && !f.startsWith('ops'))) {
     const s = read(path.join('dist/assets', f));
-    ok(!s.includes('הכי הרבה נושרים') && !s.includes('beapro-count.beapromanager.workers.dev/stats') && !s.includes('Bearer'), `dist/assets/${f}: dashboard code in a game file`);
+    ok(!s.includes('הכי הרבה נושרים') && !s.includes('מבקרים מול נרשמים') && !s.includes('beapro-count.beapromanager.workers.dev/stats') && !s.includes('Bearer'), `dist/assets/${f}: dashboard code in a game file`);
   }
   ok(existsSync('dist/ops/index.html') && /noindex/.test(read('dist/ops/index.html')), 'dist/ops/index.html missing or indexable');
+  const opsHtml = read('dist/ops/index.html');
+  const opsEntry = [...opsHtml.matchAll(/assets\/([^"']+\.js)/g)].map(m => m[1]);
+  const tabFile = assets.filter(f => /^ops-WeekendTab-[\w-]+\.js$/.test(f));
+  ok(tabFile.length === 1, `the weekend tab is not one lazy ops- file: ${tabFile.join(', ')}`);
+  ok(opsEntry.length === 1 && !read(path.join('dist/assets', opsEntry[0])).includes('מבקרים מול נרשמים'), 'the weekend tab is in the dashboard\'s first file (not lazy)');
+  ok(tabFile.every(f => read(path.join('dist/assets', f)).includes('מבקרים מול נרשמים')), 'the weekend tab file lacks its text');
   ok(!existsSync('dist/ops/sw.js') && !existsSync('dist/ops/manifest.webmanifest'), 'the dashboard build copied public/ into ops');
 } else console.log('note: no dist, the build part was not checked (run npm run build first)');
 
@@ -159,4 +169,48 @@ ok(Object.keys(OB_LABEL).length === OB_MARKS.length, 'OB_LABEL and OB_MARKS diff
 }
 
 if (fails.length) { console.log(`ops check: ${fails.length} of ${checked} failed`); for (const f of fails) console.log('  ✗ ' + f); process.exit(1); }
+/* 8. the weekend league's tab */
+{
+  for (const f of ['src/ops/weekend.ts', 'src/ops/WeekendTab.tsx']) ok(!/from ['"][./]*(game|net|ui|worker)\//.test(code(f)), `${f}: imports game code (the dashboard would carry it)`);
+  ok(/lazy\(\(\) => import\('\.\/WeekendTab\.tsx'\)\)/.test(code('src/ops/App.tsx')), 'App.tsx does not load the weekend tab lazily');
+  ok(/chunkFileNames:\s*'assets\/ops-/.test(opsVite), 'vite.ops.config.ts: lazy files would not start with ops-');
+
+  const none = buildWeekend(basic() as never, NOW);
+  ok(none.state === 'no-ext' && none.heads === null && none.v2 === null, 'weekend: an old answer drew numbers');
+  const unw = buildWeekend(full() as never, NOW);
+  ok(unw.state === 'unwired' && unw.heads === null && /WEEKEND_STATS_SECRET/.test(unw.err ?? ''), `weekend: not wired ${unw.state}`);
+  for (const e of ['timeout', 'refused', 'bad'] as const) {
+    const x = buildWeekend(weekendErr(e) as never, NOW);
+    ok(x.state === 'error' && x.heads === null && /[\u0590-\u05FF]/.test(x.err ?? ''), `weekend: ${e} not shown as an error`);
+  }
+  const v1 = buildWeekend(withWeekend() as never, NOW);
+  ok(v1.state === 'v1' && v1.heads?.managers === 37 && v1.v2 === null && v1.timeline.length === 4, 'weekend: v1 wrong');
+
+  const reg = buildWeekend(weekendV2('reg') as never, WK_NOW.reg);
+  const w = reg.v2!;
+  ok(reg.state === 'v2' && reg.phaseLabel.length > 0 && reg.next?.key === 'locks' && reg.next.at === WK.locks, `weekend reg: next ${JSON.stringify(reg.next)}`);
+  ok(reg.timeline.map(t => t.when).join() === 'past,next,later,later', `weekend reg: timeline ${reg.timeline.map(t => t.when)}`);
+  ok(w.days.map(d => d.day).join() === '2026-11-08,2026-11-09,2026-11-10,2026-11-11' && w.days[3].today && w.days[3].cum === 36, `weekend reg: days ${JSON.stringify(w.days)}`);
+  ok(w.days.map(d => d.prevCum).join() === '4,14,23,31', `weekend reg: previous cycle ${w.days.map(d => d.prevCum)}`);
+  ok(w.seats === 36 && w.returning === 14 && w.returningPct === 38.9, `weekend reg: seats/returning ${w.seats} ${w.returningPct}`);
+  const raw = weekendV2('reg');
+  const visitors = raw.ext.days.filter(d => d.day >= '2026-11-08' && d.day <= '2026-11-11').reduce((a, d) => a + d.people, 0);
+  ok(w.conv?.visitors === visitors && w.conv.managers === 36 && w.conv.pct === Math.round((36 / visitors) * 1000) / 10, `weekend reg: conversion ${JSON.stringify(w.conv)}`);
+  ok(w.rows.length === 5 && w.rows.filter(r => r.short).length === 2 && w.rows[0].label === 'חברים 1' && w.rows[3].label === 'פתוחה 4', 'weekend reg: league rows');
+  ok(w.refused === 12 && w.refusals.every(r => /[\u0590-\u05FF]/.test(r.label)), 'weekend reg: refusals');
+  ok(w.history.length === 1 && w.history[0].managers === 31, 'weekend reg: history');
+  const play = buildWeekend(weekendV2('play') as never, WK_NOW.play).v2!;
+  ok(play.play.roundsPct === 56.5 && play.play.assistantPct === 37.9 && play.errors.stuck === 1 && play.drop.cancelled === 2, `weekend play: ${JSON.stringify(play.play)}`);
+  ok(play.days.length === 5 && play.days[4].day === '2026-11-12', 'weekend play: the days stop at the lock');
+
+  const leak = weekendV2('reg') as any;
+  leak.ext.weekend.leagues[0].name = 'הפועלים של משה'; leak.ext.weekend.leagues[0].code = 'K7Q2ZZ'; leak.ext.weekend.leagues[0].id = 'lg_secret_1';
+  leak.ext.weekend.nick = 'moshe77'; leak.ext.weekend.history[0].devices = ['dev_secret_9'];
+  const out = JSON.stringify(buildWeekend(leak as never, WK_NOW.reg));
+  ok(!/משה|K7Q2ZZ|lg_secret_1|moshe77|dev_secret_9/.test(out), 'weekend: a planted name, code or id reached the view');
+  const odd = weekendV2('reg') as any; odd.ext.weekend.leagues = 'x'; odd.ext.weekend.byDay = null; odd.ext.weekend.history = [{}];
+  let threw = false; try { buildWeekend(odd as never, WK_NOW.reg); } catch { threw = true; }
+  ok(!threw, 'weekend: a strange answer throws');
+}
+
 console.log(`ops check: all ${checked} good`);

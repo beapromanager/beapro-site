@@ -34,6 +34,7 @@ export interface StatsRaw {
     days: ExtDay[];
     soFar?: { yesterday: Omit<ExtDay, 'day'> };
     weekend?: WeekendRaw | null;
+    weekendErr?: 'unwired' | 'timeout' | 'refused' | 'bad' | null;
   };
 }
 export interface WeekendRaw { phase: string; opens: number; locks: number; kickoff: number; final: number; managers: number; friendLeagues: number; openLeagues: number; openMembers: number; champions: number }

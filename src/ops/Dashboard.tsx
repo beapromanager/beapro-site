@@ -85,7 +85,7 @@ function Sec({ title, wide, children }: { title: string; wide?: boolean; childre
   );
 }
 
-export function Dashboard({ v }: { v: View }) {
+export function Dashboard({ v, onWeekend }: { v: View; onWeekend?: () => void }) {
   const depth = v.depth, share = v.share, dailyGift = v.dailyGift;
   return (
     <>
@@ -176,15 +176,11 @@ export function Dashboard({ v }: { v: View }) {
         <Sec title="ליגת סוף השבוע">
           {v.weekend ? (
             <div className="pair">
-              <div className="mini"><div className="t">שלב</div><div className="v">{v.weekend.phase === 'open' ? 'הרשמה פתוחה' : v.weekend.phase === 'locked' ? 'ההרשמה נסגרה' : v.weekend.phase === 'playing' ? 'משחקים' : v.weekend.phase}</div></div>
               <div className="mini"><div className="t">מאמנים רשומים בסבב</div><div className="v num">{num(v.weekend.managers)}</div></div>
-              <div className="mini"><div className="t">ליגות חברים</div><div className="v num">{num(v.weekend.friendLeagues)}</div></div>
-              <div className="mini"><div className="t">ליגות פתוחות</div><div className="v num">{num(v.weekend.openLeagues)}</div><div className="s">{num(v.weekend.openMembers)} משתתפים</div></div>
-              <div className="mini"><div className="t">אלופים (12 חודשים)</div><div className="v num">{num(v.weekend.champions)}</div></div>
+              <div className="mini"><div className="t">ליגות חברים / פתוחות</div><div className="v num">{num(v.weekend.friendLeagues)} / {num(v.weekend.openLeagues)}</div></div>
             </div>
-          ) : (
-            <p className="empty">ליגת סוף השבוע רצה על שרת נפרד (beapro-weekend) שאין לו ספירה לדשבורד, והמשחק לא שולח עליה אירועים. כדי לראות כאן מספרים: {NEEDS} (dashboard_weekend.patch, שלב ב׳, לא חובה).</p>
-          )}
+          ) : <p className="empty">הליגה עוד לא מחוברת לדשבורד.</p>}
+          {onWeekend && <button className="btn" onClick={onWeekend}>לכל המספרים של הליגה ←</button>}
         </Sec>
 
         <Sec title="לאן מגיעים" wide>

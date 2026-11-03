@@ -15,6 +15,10 @@ export default defineConfig(() => ({
   build: {
     outDir: 'dist',
     emptyOutDir: false,
-    rollupOptions: { input: { ops: fileURLToPath(new URL('./ops/index.html', import.meta.url)) } },
+    rollupOptions: {
+      input: { ops: fileURLToPath(new URL('./ops/index.html', import.meta.url)) },
+      // every file of the dashboard starts with ops-, the lazy weekend tab too, so no dashboard file looks like the game's
+      output: { chunkFileNames: 'assets/ops-[name]-[hash].js' },
+    },
   },
 }));
