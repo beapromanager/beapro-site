@@ -37,11 +37,14 @@ claim(!weekendFrozen(OLD_ORIGIN, lockStore), 'a career that never moved is froze
 /* 3. the app */
 const app = readFileSync('src/ui/App.tsx', 'utf8');
 const moved = readFileSync('src/ui/screens/Moved.tsx', 'utf8');
-claim(/const \[moved, setMoved\] = useState<string \| null>\(\(\) => \(isOldDomainHere\(\) && savedSummary\(\) === null \? movedTarget\(location\.search\) : null\)\)/.test(app), 'the old address with no career does not start on the moved screen');
+claim(/const \[moved, setMoved\] = useState<string \| null>\(\(\) => \(isOldDomainHere\(\) && savedSummary\(\) === null \? movedTarget\(location\.search, null\) : null\)\)/.test(app), 'the old address with no career does not start on the moved screen');
 const gate = app.indexOf('if (moved) {'), intro = app.indexOf('if (!introDone) {');
 claim(gate > 0 && intro > 0 && gate < intro, 'the moved screen does not come before the intro');
 claim(/function startNew\(veteran = saved !== null\) \{\n\s+if \(isOldDomainHere\(\)\) \{ setMoved\(movedTarget\(location\.search\)\); return; \}/.test(app.replace(/\r\n/g, '\n')), 'a new career can still be started on the old address');
-claim(/`\$\{TARGET_ORIGIN\}\/\?league=\$\{c\}`/.test(moved) && /`\$\{TARGET_ORIGIN\}\/`/.test(moved), 'the moved link is not built from TARGET_ORIGIN');
+claim(/return c \? leagueJoinLink\(c\) : `\$\{TARGET_ORIGIN\}\/`;/.test(moved), 'the moved link is not built from TARGET_ORIGIN and the invite link');
+// one rule for a league code: the moved screen reads it with the invite's own helper and keeps no pattern of its own
+claim(/leagueCodeFromUrl\(search\)/.test(moved) && !/RegExp|\[ABCDEFGHJ/.test(moved), 'the moved screen keeps its own rule for a league code');
+claim(/leagueCodeFromUrl\(kept \?/.test(moved) && /pendingInvite\(\)/.test(moved), 'a code kept on the phone does not go along when a new career is asked for');
 claim(!/https?:\/\//.test(moved.replace(/\/\*[\s\S]*?\*\//g, '')), 'the moved screen spells an address out by hand');
 claim(/BE A PRO עבר לכתובת חדשה/.test(moved) && /להמשך למשחק ←/.test(moved), 'the moved screen does not say the agreed words');
 

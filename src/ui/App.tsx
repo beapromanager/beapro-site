@@ -117,7 +117,7 @@ function AppInner() {
   const [introDone, setIntroDone] = useState(() => savedSummary() !== null);
   // the old address (Itzik, 3.11): no new career there. With none saved it is only the way to beapro.co.il, read once
   // on load so an invite's ?league=CODE goes along before the address is tidied
-  const [moved, setMoved] = useState<string | null>(() => (isOldDomainHere() && savedSummary() === null ? movedTarget(location.search) : null));
+  const [moved, setMoved] = useState<string | null>(() => (isOldDomainHere() && savedSummary() === null ? movedTarget(location.search, null) : null));
   const [booted, setBooted] = useState(arrived !== null);            // still on the title screen
   // the daily gift: the table open, and the celebration of the gift just taken (the reveal of a pack waits for it)
   const [dailyOpen, setDailyOpen] = useState(false);

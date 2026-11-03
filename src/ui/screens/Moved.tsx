@@ -1,21 +1,21 @@
 import { TARGET_ORIGIN } from '../../game/transfer.ts';
-import { CODE_LEN } from '../../game/weekendCore.ts';
+import { leagueCodeFromUrl, leagueJoinLink } from '../../game/weekendInvite.ts';
+import { pendingInvite } from '../../game/weekend.ts';
 import { asset } from '../asset.ts';
 
 /**
  * The old address with no career on it (Itzik, 3.11: the game lives only at beapro.co.il; the move between the two
  * addresses is cancelled). Nobody starts a career here any more: this screen stands where the intro and the title
  * would, and its one button goes to the new address. A league invite (?league=CODE) goes along with the code, so the
- * friend lands on the same invite there.
+ * friend lands on the same invite there. The code is read and the link is made by the invite's own helpers
+ * (weekendInvite.ts), so there is one rule for what a league code is. A code already kept on this phone goes along
+ * too: "קריירה חדשה" comes after the address bar was tidied.
  */
-const LEAGUE_CODE = new RegExp(`^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{${CODE_LEN}}$`);
-
-export function movedTarget(search: string): string {
-  try {
-    const c = (new URLSearchParams(search).get('league') ?? '').trim().toUpperCase();
-    return LEAGUE_CODE.test(c) ? `${TARGET_ORIGIN}/?league=${c}` : `${TARGET_ORIGIN}/`;
-  } catch { return `${TARGET_ORIGIN}/`; }
+export function movedTarget(search: string, kept: string | null = keptInvite()): string {
+  const c = leagueCodeFromUrl(search) ?? leagueCodeFromUrl(kept ? `?league=${kept}` : '');
+  return c ? leagueJoinLink(c) : `${TARGET_ORIGIN}/`;
 }
+function keptInvite(): string | null { try { return pendingInvite(); } catch { return null; } }
 
 /** the address as the player reads it, from the one place that owns it */
 const HOST = new URL(TARGET_ORIGIN).host;

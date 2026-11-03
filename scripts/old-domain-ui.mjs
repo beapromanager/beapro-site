@@ -92,6 +92,14 @@ const shot = (p, n) => p.screenshot({ path: path.join(shots, n + '.png') });
   await page.getByTestId('moved').waitFor({ timeout: 10000 });
   claim(await page.evaluate(() => localStorage.getItem('beapro.career.v1')) === before, 'asking for a new career on the old address changed the saved one');
   await shot(page, 'o3-old-address-new-career-asked');
+  claim((await page.getByRole('link', { name: 'להמשך למשחק ←' }).getAttribute('href')) === NEW + '/', 'the moved link from "קריירה חדשה" is not the new address');
+  // an invite kept on this phone (the address bar is tidied by then) goes along when a new career is asked for
+  await page.goto(OLD + '/');
+  await page.evaluate(() => { const k = 'beapro.weekend.v1'; const v = JSON.parse(localStorage.getItem(k) || '{}'); v.invite = { code: 'KX7R2M', until: Date.now() + 86400000 }; localStorage.setItem(k, JSON.stringify(v)); });
+  await page.goto(OLD + '/');
+  await page.getByRole('button', { name: 'קריירה חדשה' }).click({ timeout: 20000 });
+  await page.getByTestId('moved').waitFor({ timeout: 10000 });
+  claim((await page.getByRole('link', { name: 'להמשך למשחק ←' }).getAttribute('href')) === NEW + '/?league=KX7R2M', 'a kept invite code does not go along from "קריירה חדשה" on the old address');
   await page.goto(OLD + '/');
   await page.getByRole('button', { name: 'המשך קריירה' }).click({ timeout: 20000 });
   await page.getByText(JSON.parse(seed.career).state ? seed.club : seed.club).first().waitFor({ timeout: 20000 });
