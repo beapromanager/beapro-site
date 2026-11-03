@@ -99,7 +99,9 @@
     "check:prologue": "node --experimental-strip-types scripts/prologue-check.mts",
     "check:firstmatch": "node --experimental-strip-types scripts/firstmatch-check.mts",
     "check:ops": "node --experimental-strip-types scripts/ops-check.mts",
-    "check:ops-ui": "node scripts/ops-ui.mjs"
+    "check:ops-ui": "node scripts/ops-ui.mjs",
+    "check:transfer": "node --experimental-strip-types scripts/transfer-check.mts",
+    "check:transfer-ui": "node --experimental-strip-types scripts/transfer-ui.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -62,7 +62,7 @@ const KNOWN = new Set<string>(STEPS);
  * career that won the top division. The same pattern as MILESTONE in src/game/telemetry.ts, and telemetry-check
  * compares the two, because a copy nobody compares is a copy that drifts.
  */
-const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|cup_in|cup_sf|cup_final|cup_won|gift10|share_tap|ob_(prologue|goal5|choice_bench|choice_bottle|skip|stills|fired|call|city|named_self|kickoff|match1_end|names|names_skip|kit|arch|sponsor|market)|daily_1|daily_7|daily_30)$/;
+const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|cup_in|cup_sf|cup_final|cup_won|gift10|share_tap|xfer_offer|xfer_sent|xfer_in|xfer_code|site_new|ob_(prologue|goal5|choice_bench|choice_bottle|skip|stills|fired|call|city|named_self|kickoff|match1_end|names|names_skip|kit|arch|sponsor|market)|daily_1|daily_7|daily_30)$/;
 
 /**
  * What the dashboard asks of the milestones. Plain SQL over the same table as the funnel, one row per device per
@@ -87,6 +87,8 @@ export const REACH_SQL = {
   share: "SELECT COUNT(*) AS n FROM steps WHERE step = 'share_tap'",
   /** devices that took a first daily gift, reached a full week, reached thirty days: one row per mark */
   daily: "SELECT step, COUNT(*) AS n FROM steps WHERE step IN ('daily_1', 'daily_7', 'daily_30') GROUP BY step ORDER BY step",
+  /** the move to the new address: offered, sent, arrived by window, arrived by file or code, any sitting there: one row per mark */
+  xfer: "SELECT step, COUNT(*) AS n FROM steps WHERE step IN ('xfer_offer', 'xfer_sent', 'xfer_in', 'xfer_code', 'site_new') GROUP BY step ORDER BY step",
 };
 
 /** the error kinds the game may report; anything else is dropped */
@@ -190,7 +192,7 @@ export default {
       const days = Math.min(90, Math.max(1, Number(url.searchParams.get('days') ?? 30)));
       const since = today(Date.now() - days * 86400000);
 
-      const [funnel, totals, daily, returning, crashes, grid, ever, best, seasons, titles, europe, gift, share, dailyGift] = await Promise.all([
+      const [funnel, totals, daily, returning, crashes, grid, ever, best, seasons, titles, europe, gift, share, dailyGift, xferRows] = await Promise.all([
         env.DB.prepare('SELECT step, COUNT(*) AS n FROM steps GROUP BY step').all(),
         env.DB.prepare(
           'SELECT (SELECT COUNT(DISTINCT aid) FROM sessions) AS people,' +
@@ -220,6 +222,7 @@ export default {
         env.DB.prepare(REACH_SQL.gift).all(),
         env.DB.prepare(REACH_SQL.share).all(),
         env.DB.prepare(REACH_SQL.daily).all(),
+        env.DB.prepare(REACH_SQL.xfer).all(),
       ]);
 
       const counts: Record<string, number> = {};
@@ -235,7 +238,7 @@ export default {
         daily: daily.results,
         crashes: crashes.results,
         // where careers get to, from the milestones: empty until the game that reports them is out
-        reach: { grid: grid.results, ever: ever.results, best: best.results, seasons: seasons.results, titles: titles.results, europe: europe.results, gift: gift.results, share: share.results, daily: dailyGift.results },
+        reach: { grid: grid.results, ever: ever.results, best: best.results, seasons: seasons.results, titles: titles.results, europe: europe.results, gift: gift.results, share: share.results, daily: dailyGift.results, xfer: xferRows.results },
       }, 200, origin);
     }
 

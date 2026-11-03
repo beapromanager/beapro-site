@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { watchInstall, isInstalled } from '../install.ts';
 import { LeagueTeaser } from '../components/LeagueTeaser.tsx';
 import { LegalSheet, LegalLinks, type LegalKind } from '../components/LegalSheet.tsx';
+import { TransferBanner } from '../components/TransferUi.tsx';
 
 /**
  * Entry screen, the tunnel (Itzik's pick of five on 12.10).
@@ -107,6 +108,9 @@ export function TitleScreen({ saved, onNew, onContinue, onInstall, extra }: {
           {saved && <p className="hint" style={{ textAlign: 'center', margin: 0 }}>קריירה חדשה תמחק את הקריירה השמורה.</p>}
           {/* the neighbourhood league: its entrance once the door is open, until then the teaser with the date; one of them, never both (25.10) */}
           {extra ?? <LeagueTeaser />}
+
+          {/* the move to beapro.co.il: the offer on the old address, "ייבוא קריירה" on the new one, nothing anywhere else */}
+          <TransferBanner where="title" />
 
           {/* The install belongs HERE, before a career, not buried in the game.
               Shown whatever the device says: the sheet knows the right route for

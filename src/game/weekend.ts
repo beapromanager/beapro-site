@@ -15,6 +15,7 @@ import type { DuelView } from './duel.ts';
 import type { Row, MatchResult, Prize, Cycle, CyclePhase } from './weekendCore.ts';
 import { DAY_NAME, slotByKey, KICKOFF_KEY, FINAL_KEY, FIRST_REGISTRATION_OPENS_AT } from './weekendCore.ts';
 import { deviceId } from './telemetry.ts';
+import { weekendFrozen, MOVED_WEEKEND_MSG } from './transferLock.ts';
 import type { Player } from '../engine/matchEngine.ts';
 import type { SimpleTactic } from './liveMatch.ts';
 
@@ -85,6 +86,8 @@ export class ApiError extends Error {
 }
 
 async function api<T>(path: string, body?: unknown): Promise<T> {
+  // an address that already handed its career over to the new address opens no weekend door (transferLock.ts)
+  if (weekendFrozen()) throw new ApiError(409, MOVED_WEEKEND_MSG);
   const dev = deviceId();
   const url = new URL(WEEKEND_URL + path);
   if (!url.searchParams.has('device')) url.searchParams.set('device', dev);

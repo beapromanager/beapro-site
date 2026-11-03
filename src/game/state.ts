@@ -131,6 +131,7 @@ import {
   licence, applyCourse, coachFitnessBonus, coachCardBias, nextLicence, licenceRank,
 } from './coach.ts';
 import type { PackPull, PackId } from './packs.ts';
+import { weekendFrozen, MOVED_PRIZE_MSG } from './transferLock.ts';
 import {
   openPack, pullOf, packById, GEMS_AT_START, GEMS_PER_AD, GEMS_ON_PROMOTION, adFreeGems,
   ADS_PER_SEASON, PACK_CONTRACT_YEARS,
@@ -2827,7 +2828,7 @@ export function acceptInvite(gs: GameState, ref: string): GameState {
 export interface RedeemResult {
   gs: GameState; ok: boolean; message: string;
   /** for a weekend prize: in, already in (the same nonce), or no career to put it in; the phone keeps the token only on the last */
-  reason?: 'applied' | 'duplicate' | 'no-career';
+  reason?: 'applied' | 'duplicate' | 'no-career' | 'moved';
 }
 
 /**
@@ -2841,6 +2842,8 @@ export interface RedeemResult {
 export function applyWeekendPrize(gs: GameState, token: WeekendPrizeInput): RedeemResult {
   const had = gs.weekend ?? emptyWeekend();
   if (had.applied.includes(token.nonce)) return { gs, ok: false, message: 'הפרס הזה כבר בקופה', reason: 'duplicate' };
+  // the career has moved to the new address from this one: the prize is redeemed there, never twice (transferLock.ts)
+  if (weekendFrozen()) return { gs, ok: false, message: MOVED_PRIZE_MSG, reason: 'moved' };
   if (!gs.clubId) return { gs, ok: false, message: 'צריך קריירה כדי לקבל את הפרס', reason: 'no-career' };
   const o = weekendOutcome(had, token, club(gs).tier);
   const date = weekendDate(token.final);

@@ -90,7 +90,7 @@ export const QUEUE_CAP = 60;
  * and reaching the top does not mean having sat in every season on the way. So they are never backfilled, each is
  * reported when it happens, and the server keeps one of each per device like every other step.
  */
-export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number] | typeof CUP_MARKS[number] | typeof GIFT_MARKS[number] | typeof SHARE_MARKS[number] | typeof DAILY_MARKS[number] | typeof OB_MARKS[number];
+export type Milestone = `t${number}s${number}` | `w${number}` | typeof MONEY_MARKS[number] | typeof EURO_MARKS[number] | typeof CUP_MARKS[number] | typeof GIFT_MARKS[number] | typeof SHARE_MARKS[number] | typeof DAILY_MARKS[number] | typeof OB_MARKS[number] | typeof XFER_MARKS[number];
 /**
  * The two money facts worth counting, agreed with Itzik on 3.10: a career that
  * fell below zero, and a career the owner ended over debt. The bot simulations
@@ -141,10 +141,16 @@ export const OB_MARKS = [
   'ob_fired', 'ob_call', 'ob_city', 'ob_named_self', 'ob_kickoff', 'ob_match1_end',
   'ob_names', 'ob_names_skip', 'ob_kit', 'ob_arch', 'ob_sponsor', 'ob_market',
 ] as const;
+/**
+ * The move to beapro.co.il (Itzik, 25.10): the old address showed the offer, the career was sent, it arrived by the
+ * window or by a file or a code, and any sitting at all on the new address. Names only, said once a device. The counting
+ * id travels with the career, so one person is one id on both sides: the share that moved is xfer_sent over xfer_offer.
+ */
+export const XFER_MARKS = ['xfer_offer', 'xfer_sent', 'xfer_in', 'xfer_code', 'site_new'] as const;
 /** a career older than this is counted in its twentieth season, "twenty or more" */
 export const MAX_SEASON = 20;
 /** the only shapes the game sends and the worker keeps. The worker holds the same pattern, telemetry-check compares them */
-export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|cup_in|cup_sf|cup_final|cup_won|gift10|share_tap|ob_(prologue|goal5|choice_bench|choice_bottle|skip|stills|fired|call|city|named_self|kickoff|match1_end|names|names_skip|kit|arch|sponsor|market)|daily_1|daily_7|daily_30)$/;
+export const MILESTONE = /^(t[1-5]s([1-9]|1[0-9]|20)|w[1-5]|money_red|money_sack|eu_in|eu_final|eu_won|cup_in|cup_sf|cup_final|cup_won|gift10|share_tap|xfer_offer|xfer_sent|xfer_in|xfer_code|site_new|ob_(prologue|goal5|choice_bench|choice_bottle|skip|stills|fired|call|city|named_self|kickoff|match1_end|names|names_skip|kit|arch|sponsor|market)|daily_1|daily_7|daily_30)$/;
 
 export function isMilestone(k: unknown): k is Milestone {
   return typeof k === 'string' && MILESTONE.test(k);
@@ -393,6 +399,11 @@ export function dailyMark(k: typeof DAILY_MARKS[number]): void {
 
 /** Note that this device sent a big moment to a friend. */
 export function shareMark(k: typeof SHARE_MARKS[number]): void {
+  trackMilestone(k);
+}
+
+/** Note a step of the move to the new address: the offer, the send, the arrival, a sitting there. */
+export function xferMark(k: typeof XFER_MARKS[number]): void {
   trackMilestone(k);
 }
 
