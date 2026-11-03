@@ -10,12 +10,13 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SaveSummary } from '../../game/save.ts';
-import { WeekendApi, ApiError, local, setLocal, serverNow, slotLabel, dateLabel, rootDecision, POSITION_WORDS, type LeagueView, type LiveView, type PrizeToken } from '../../game/weekend.ts';
+import { WeekendApi, ApiError, local, setLocal, serverNow, pendingInvite, dropInvite, slotLabel, dateLabel, rootDecision, POSITION_WORDS, type LeagueView, type LiveView, type PrizeToken } from '../../game/weekend.ts';
 import { cycleOf, cyclePhase, SLOT_GRID, DAY_NAME, slotsNeeded, slotsProblem, ilDayDate, ilTime, READY_MS, MIN_MEMBERS, MAX_MEMBERS, PACK_EVERY, type SlotDay } from '../../game/weekendCore.ts';
 import { introSeen, firstStrip, CANCEL_TEXT } from '../../game/weekendGuide.ts';
 import { prizePreview, weekendMoney, weekendDate, monthDots, leaguesIn, WEEKEND_TRIPLE_GEMS, WEEKEND_TRIPLE_AT, type CareerPrizeView } from '../../game/weekendPrize.ts';
 import { LEAGUE_NAMES } from '../../data/clubs.ts';
-import { HelpButton, IntroCards, FaqSheet, AdminGuide, FillingCard, WhenLine } from './WeekendGuide.tsx';
+import { HelpButton, IntroCards, FaqSheet, AdminGuide, FillingCard, WhenLine, ShareButton } from './WeekendGuide.tsx';
+import { leagueInviteText, championBrag } from '../../game/weekendInvite.ts';
 import { fillFormation, formation, FORMATIONS, type FormationId } from '../../data/formations.ts';
 import { overall } from '../../engine/matchEngine.ts';
 import type { Player } from '../../engine/matchEngine.ts';
@@ -48,6 +49,7 @@ export function Count({ to, now, className, style }: { to: number; now: number; 
 
 /** the card on the title screen, all week: what is open now, and a countdown to what is next */
 export function WeekendEntry({ onOpen, hasCareer }: { onOpen: () => void; hasCareer: boolean }) {
+  const invite = pendingInvite();
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(t); }, []);
   const now = serverNow();
@@ -71,6 +73,7 @@ export function WeekendEntry({ onOpen, hasCareer }: { onOpen: () => void; hasCar
         {now < line.to && <Count className="c" to={line.to} now={now} />}
         <span className="m">{line.m}</span>
       </div>
+      {invite && !mine && <div className="m" style={{ marginTop: 4 }}>הוזמנת לליגה, הקוד <bdi dir="ltr">{invite}</bdi> מחכה לך</div>}
       {!hasCareer && <div className="m" style={{ marginTop: 4 }}>קודם קריירה, אחר כך הליגה</div>}
     </button>
   );
@@ -117,11 +120,13 @@ export function WeekendRoot({ saved, career, onBack, onPrize, onCabinet }: {
         return;
       }
       drop();
+      // a code that came in on a link: straight to "נכנסים עם קוד", the code already in the box (3.11)
+      if (on && pendingInvite() && saved && cyclePhase(cycleOf(serverNow()), serverNow()) === 'open') setPage('join');
     }).catch(e => { if (on) setErr(e instanceof ApiError ? e.message : 'השרת לא עונה'); }).finally(() => { if (on) setBooting(false); });
     return () => { on = false; };
   }, []);
 
-  const enter = (id: string) => { setLeagueId(id); setLastMode(false); setLocal({ leagueId: id, final: cycleOf(serverNow()).final }); setPage('lobby'); };
+  const enter = (id: string) => { dropInvite(); setLeagueId(id); setLastMode(false); setLocal({ leagueId: id, final: cycleOf(serverNow()).final }); setPage('lobby'); };
   const now = serverNow();
   const sheets = (
     <>
@@ -150,7 +155,7 @@ export function WeekendRoot({ saved, career, onBack, onPrize, onCabinet }: {
         </div>
         {page === 'home' && <Home saved={saved} booting={booting} err={err} go={setPage} onFaq={() => setSheet('faq')} />}
         {page === 'create' && <CreateLeague onMade={enter} />}
-        {page === 'join' && <JoinLeague onJoined={enter} />}
+        {page === 'join' && <JoinLeague onJoined={enter} initialCode={pendingInvite() ?? ''} />}
         {page === 'open' && <OpenJoin onJoined={enter} />}
       </div>
       {sheets}
@@ -166,6 +171,7 @@ function Home({ saved, booting, err, go, onFaq }: { saved: SaveSummary | null; b
   const phase = cyclePhase(c, now);
   const open = phase === 'open';
   const first = firstStrip(now);
+  const invite = pendingInvite(now);
   return (
     <>
       <div className="wk-frame"><img src={asset('/weekend/entrance.webp')} alt="" /></div>
@@ -184,7 +190,7 @@ function Home({ saved, booting, err, go, onFaq }: { saved: SaveSummary | null; b
       </div>
       {err && <p className="wk-err">{err}</p>}
       {!saved ? (
-        <div className="wk-card"><b>קודם קריירה.</b> <span className="wk-muted">הליגה מחכה למי שיש לו קבוצה בבית. תפתח קריירה, ותחזור.</span></div>
+        <div className="wk-card"><b>קודם קריירה.</b> <span className="wk-muted">הליגה מחכה למי שיש לו קבוצה בבית. תפתח קריירה, ותחזור.{invite ? <> הקוד <bdi dir="ltr">{invite}</bdi> שמור לך כאן, ואפשר גם פשוט ללחוץ שוב על הלינק.</> : null}</span></div>
       ) : !open ? (
         <div className="wk-card"><b>ההרשמה סגורה.</b> <span className="wk-muted">ליגות נפתחות מראשון 20:00 עד חמישי 17:00. אם אתה כבר בליגה, היא תיפתח כאן לבד.</span></div>
       ) : (
@@ -288,8 +294,8 @@ function CreateLeague({ onMade }: { onMade: (id: string) => void }) {
   );
 }
 
-function JoinLeague({ onJoined }: { onJoined: (id: string) => void }) {
-  const [code, setCode] = useState('');
+function JoinLeague({ onJoined, initialCode = '' }: { onJoined: (id: string) => void; initialCode?: string }) {
+  const [code, setCode] = useState(initialCode);
   const [nick, setNick] = useState(local().nick);
   const [ok, setOk] = useState(false);
   const [age16, setAge16] = useState(false);
@@ -413,7 +419,8 @@ function Lobby({ id, league, setLeague, last, onMatch, onLeave, onHome, onHelp, 
   const pend = local().pendingPrize;
   const prizeTaken = gone || leaguesIn(career?.weekend ?? undefined).includes(id) || pend?.league === id;
 
-  const shareText = L.code ? `ליגת השכונה ב-BE A PRO. ${L.name}, הקוד ${L.code}. חמישי 20:00 פותחים. ${L.roundKeys.map(r => `${slotLabel(r.key).day} ${slotLabel(r.key).time}`).join(', ')}.` : null;
+  // the invite (Itzik, 3.11): the game's name, what it is, the league, the code, the rounds once, a link that fills the code in
+  const shareText = L.code || L.kind === 'open' ? leagueInviteText({ kind: L.kind, name: L.name, code: L.code, rounds: L.roundKeys.map(r => r.key), locks: L.cycle.locks }) : null;
   return (
     <div className="wk">
       <div className="wk-paper wk-stack">
@@ -497,8 +504,12 @@ function Lobby({ id, league, setLeague, last, onMatch, onLeave, onHome, onHelp, 
             </div>
             {L.status === 'open' && shareText && (
               <div className="wk-card soft">
-                <b>שלח לחבר׳ה:</b>
-                <p className="wk-muted" style={{ margin: '6px 0 0', userSelect: 'all' }}>{shareText}</p>
+                <b>ההזמנה לחבר׳ה:</b>
+                <p className="wk-muted" dir="rtl" style={{ margin: '6px 0 0', userSelect: 'all', whiteSpace: 'pre-line', unicodeBidi: 'plaintext' }}>{shareText}</p>
+                <div className="wk-row" style={{ gap: 6, marginTop: 8 }}>
+                  <ShareButton text={shareText} className="wk-btn sm" style={{ flex: 1 }} />
+                  <a className="wk-btn sm ghost" style={{ flex: 1, textAlign: 'center', textDecoration: 'none' }} href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noopener noreferrer">בוואטסאפ</a>
+                </div>
               </div>
             )}
           </>
@@ -661,8 +672,7 @@ function ChampionCard({ L, onTake, words, hasCareer, career, taken, pending, onC
   const shown = useCountUp(pv.money, champ ? 900 : 0, champ ? 900 : 1);
   const leagueWords = LEAGUE_NAMES[pv.tier] ?? '';
   const date = weekendDate(L.cycle.final);
-  const [copied, setCopied] = useState(false);
-  const brag = `🏆 אלוף ליגת השכונה ב-BE A PRO · ${L.name} · ${date}`;
+  const brag = championBrag(L.name, date);
   const done = taken || !!words;
   const button = !done && p.wageRounds > 0
     ? <button className="wk-btn red" onClick={onTake}>{hasCareer ? 'לקחת הביתה לקריירה' : 'לשמור את הפרס לקריירה'}</button> : null;
@@ -733,7 +743,7 @@ function ChampionCard({ L, onTake, words, hasCareer, career, taken, pending, onC
       </div>
       {last && last.nick !== L.me?.nick && <p className="wk-muted">כפרה, {last.nick}.</p>}
       {button}{after}
-      <button className="wk-btn ghost sm" style={{ marginTop: 8 }} onClick={async () => { try { await navigator.clipboard.writeText(brag); setCopied(true); } catch { /* no clipboard */ } }}>{copied ? 'הועתק. עכשיו לוואטסאפ' : 'להעתיק לחבר׳ה'}</button>
+      <ShareButton text={brag} label="לשלוח לחבר׳ה" className="wk-btn ghost sm" style={{ marginTop: 8 }} />
     </div>
   );
 }

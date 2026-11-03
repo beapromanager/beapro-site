@@ -44,6 +44,7 @@
     "check:weekendworker": "node --experimental-strip-types scripts/weekend-worker-check.mts",
     "check:legal": "node --experimental-transform-types scripts/legal-check.mts",
     "check:weekendguide": "node --experimental-strip-types scripts/weekend-guide-check.mts",
+    "check:leagueinvite": "node --experimental-strip-types scripts/league-invite-check.mts",
     "check:duel": "node --experimental-strip-types scripts/duel-check.mts",
     "check:coach": "node --experimental-strip-types scripts/coach-check.mts",
     "check:install": "node --experimental-strip-types scripts/install-check.mts",

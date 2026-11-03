@@ -13,7 +13,7 @@
 
 import type { DuelView } from './duel.ts';
 import type { Row, MatchResult, Prize, Cycle, CyclePhase } from './weekendCore.ts';
-import { DAY_NAME, slotByKey, KICKOFF_KEY, FINAL_KEY, FIRST_REGISTRATION_OPENS_AT } from './weekendCore.ts';
+import { DAY_NAME, slotByKey, KICKOFF_KEY, FINAL_KEY, FIRST_REGISTRATION_OPENS_AT, cycleOf, cyclePhase } from './weekendCore.ts';
 import { deviceId } from './telemetry.ts';
 import { weekendFrozen, MOVED_WEEKEND_MSG } from './transferLock.ts';
 import type { Player } from '../engine/matchEngine.ts';
@@ -58,6 +58,8 @@ export interface WeekendLocal {
   pendingPrize: (PrizeToken & { tierSeen?: number }) | null;
   /** league id to the career's division the first time this phone saw that league's prize: a promotion in between does not raise it */
   prizeTier: Record<string, number>;
+  /** a friend league's code that came in on a link (?league=CODE), kept until registration closes or the phone joins (3.11) */
+  invite?: { code: string; until: number } | null;
 }
 export interface PrizeToken { league: string; device: string; place: number; wageRounds: number; gems: number; finished: boolean; nick: string; leagueName: string; final: number; nonce: string; sig: string }
 
@@ -68,6 +70,20 @@ export function local(): WeekendLocal {
 export function setLocal(patch: Partial<WeekendLocal>) {
   try { localStorage.setItem(KEY, JSON.stringify({ ...local(), ...patch })); } catch { /* fine */ }
 }
+
+/** keep a code from an invite link, while this weekend's registration is open; any other time it means nothing */
+export function keepInvite(code: string, now = serverNow()): boolean {
+  const c = cycleOf(now);
+  if (cyclePhase(c, now) !== 'open') return false;
+  setLocal({ invite: { code, until: c.locks } });
+  return true;
+}
+/** the code waiting for "נכנסים עם קוד", if registration is still open for it */
+export function pendingInvite(now = serverNow()): string | null {
+  const v = local().invite;
+  return v && typeof v.code === 'string' && now < v.until ? v.code : null;
+}
+export function dropInvite(): void { if (local().invite) setLocal({ invite: null }); }
 
 /* ------------------------------------------------------------------- api */
 

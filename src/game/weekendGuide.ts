@@ -157,10 +157,12 @@ export function fillingCard(n: number, isOpener: boolean, kind: 'friends' | 'ope
   const head = n >= MIN_MEMBERS ? `${n} בפנים. יש מספיק, הליגה יוצאת לדרך.` : `${n} בפנים. חסרים עוד ${MIN_MEMBERS - n} עד ${LOCKS_WORDS}.`;
   if (kind === 'open') return { title: 'הליגה הפתוחה מתמלאת', head, lines: [`היא מתמלאת לבד, ונסגרת כשיש ${MIN_MEMBERS}.`] };
   if (isOpener) return { title: 'אתה המנהל. מה עכשיו?', head, lines: ['שלח את הקוד לחבר׳ה. ההודעה המוכנה למטה.', `ב${LOCKS_WORDS} הרשימה ננעלת, ומשם אתה מנהל כמו כולם.`] };
-  return { title: 'מחכים לחבר׳ה', head, lines: ['מכיר עוד מישהו? תן לו את הקוד.'] };
+  return { title: 'מחכים לחבר׳ה', head, lines: ['מכיר עוד מישהו? שלח לו את ההזמנה.'] };
 }
-export const COPY_WORDS = 'להעתיק את ההודעה לחבר׳ה';
-export const COPIED_WORDS = 'הועתק. עכשיו לוואטסאפ';
+/** the invite button (Itzik, 3.11): the phone's share sheet where there is one, the clipboard where there is not */
+export const COPY_WORDS = 'לשלוח הזמנה לחבר׳ה';
+export const COPIED_WORDS = 'הועתק ✓ עכשיו להדביק בוואטסאפ';
+export const SHARED_WORDS = 'נשלח ✓';
 
 /** the league did not make six at the lock */
 export const CANCEL_TEXT = {

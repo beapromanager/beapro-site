@@ -4,7 +4,8 @@ import { saveCareer, loadCareer, savedSummary, clearCareer } from '../game/save.
 import type { SaveSummary } from '../game/save.ts';
 import { TitleScreen } from './screens/Title.tsx';
 import { WeekendEntry, WeekendRoot } from './weekend/Weekend.tsx';
-import { weekendOn, serverNow, LAUNCH_AT, local as weekendLocal, setLocal as setWeekendLocal } from '../game/weekend.ts';
+import { weekendOn, serverNow, LAUNCH_AT, local as weekendLocal, setLocal as setWeekendLocal, keepInvite } from '../game/weekend.ts';
+import { leagueCodeFromUrl } from '../game/weekendInvite.ts';
 import type { PrizeToken } from '../game/weekend.ts';
 import type { CareerPrizeView } from '../game/weekendPrize.ts';
 import { LEAGUE_NAMES } from '../data/clubs.ts';
@@ -120,7 +121,14 @@ function AppInner() {
   const [squadFromHub, setSquadFromHub] = useState(false);
   const [saved, setSaved] = useState<SaveSummary | null>(() => savedSummary());
   // the weekend league: its own screen off the title, and the prize that comes home to the career
-  const [weekendOpen, setWeekendOpen] = useState(false);
+  // a friend league's invite link (?league=CODE, 3.11): the code is kept on the phone for "נכנסים עם קוד", and a manager
+  // who already has a career is taken to the league's door at once. Read once on load, before the address is tidied
+  const [weekendOpen, setWeekendOpen] = useState(() => {
+    try {
+      const code = leagueCodeFromUrl(location.search);
+      return !!code && keepInvite(code) && savedSummary() !== null && weekendOn(serverNow());
+    } catch { return false; }
+  });
   // the clock the league's door is read by: a tick a second until the launch has passed, then it stands still
   const [wkNow, setWkNow] = useState(() => serverNow());
   useEffect(() => {

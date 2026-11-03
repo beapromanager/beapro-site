@@ -226,14 +226,15 @@ const allTexts = (now: number): string[] => [
   claim(/<AdminGuide size=\{size\} \/>/.test(ui), 'the opener\'s steps are not on the create screen');
   claim(/L\.status === 'open' && <FillingCard n=\{L\.members\.length\} isOpener=\{L\.opener\}/.test(ui), 'the filling card is not shown while open (and only then)');
   claim(/<b>\{CANCEL_TEXT\.lead\}<\/b> <span className="wk-muted">\{CANCEL_TEXT\.rest\}<\/span>/.test(ui), 'the cancel card does not show the new words');
-  claim(/const shareText = L\.code \?/.test(ui) && (ui.match(/ליגת השכונה ב-BE A PRO\./g) ?? []).length === 1, 'the share text is written twice');
+  // the invite's words live in game/weekendInvite.ts (3.11), held by check:leagueinvite; the lobby builds them once
+  claim(/const shareText = L\.code \|\| L\.kind === 'open' \? leagueInviteText\(/.test(ui) && (ui.match(/leagueInviteText\(/g) ?? []).length === 1, 'the share text is written twice');
   claim(/שאלות נפוצות: מתי משחקים, מה הפרס, מה עושה מי שפותח/.test(ui), 'the questions link is not on the home screen');
   claim(/export function HelpButton/.test(guide) && /איך זה עובד\?<\/button>/.test(guide), 'the help button\'s words');
   claim(/Math\.abs\(dx\) < 40 \|\| Math\.abs\(dx\) <= Math\.abs\(dy\)/.test(guide) && /if \(dx > 0\) next\(\); else prev\(\);/.test(guide), 'the swipe is not the RTL way (right for next, 40px, horizontal only)');
   claim(/e\.key === 'Escape'/.test(guide), 'Esc does not close the sheets');
   claim(/const close = \(\) => \{ markIntroSeen\(\); onClose\(\); \};/.test(guide) && /onClick=\{\(\) => \{ markIntroSeen\(\); onFaq\(\); \}\}/.test(guide), 'closing the intro (skip, finish, Esc, the questions) does not mark it seen');
   claim(/יאללה, לליגה/.test(guide) && /יש לי עוד שאלות/.test(guide) && /לראות שוב את ההסבר הקצר/.test(guide), 'the sheet\'s words');
-  claim(/navigator\.clipboard\.writeText/.test(guide), 'the copy button does not copy');
+  claim(/clipboard\.writeText\(text\)/.test(guide) && /nav\.share\(/.test(guide), 'the copy button does not share or copy');
   claim(/role="status"/.test(guide), 'the when line has no role=status');
   for (const cls of ['.wk-help', '.wk-sheet', '.wk-intro', '.wk-dots', '.wk-faq', '.wk-guide', '.wk-steps', '.wk-when', '.wk-when.hot']) claim(css.includes(cls + '{') || css.includes(cls + ','), `no style for ${cls}`);
   claim(/prefers-reduced-motion: reduce\)\{\.wk-when\.hot::before\{animation:none\}/.test(css), 'the hot dot ignores reduced motion');

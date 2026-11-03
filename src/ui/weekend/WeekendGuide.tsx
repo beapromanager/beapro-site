@@ -4,7 +4,7 @@
  * what happens when. The words all live in game/weekendGuide.ts; this is only how they are shown.
  */
 import { useEffect, useRef, useState } from 'react';
-import { introCards, faq, adminSteps, fillingCard, markIntroSeen, whenLine, COPY_WORDS, COPIED_WORDS, type WhenInput } from '../../game/weekendGuide.ts';
+import { introCards, faq, adminSteps, fillingCard, markIntroSeen, whenLine, COPY_WORDS, COPIED_WORDS, SHARED_WORDS, type WhenInput } from '../../game/weekendGuide.ts';
 import { asset } from '../asset.ts';
 import { Icon } from '../components/Icon.tsx';
 
@@ -117,23 +117,57 @@ export function AdminGuide({ size }: { size: number }) {
   );
 }
 
+/**
+ * Send words to friends: the phone's share sheet (WhatsApp, Telegram, SMS) where there is one, else the clipboard.
+ * The link is inside the text and not passed as `url` too, or WhatsApp on Android shows it twice. Backing out of the
+ * sheet is not a failure and copies nothing; a sheet that cannot open falls back to the clipboard, and a phone with no
+ * clipboard API gets the old textarea copy. 'failed' leaves the words on the screen to select by hand.
+ */
+export type ShareOutcome = 'shared' | 'copied' | 'cancelled' | 'failed';
+export async function shareOrCopy(text: string): Promise<ShareOutcome> {
+  if (!text) return 'failed';
+  const nav: Navigator | undefined = typeof navigator !== 'undefined' ? navigator : undefined;
+  if (nav && typeof nav.share === 'function') {
+    try { await nav.share({ title: 'BE A PRO', text }); return 'shared'; }
+    catch (e) { if (e instanceof Error && e.name === 'AbortError') return 'cancelled'; /* no sheet here: the clipboard */ }
+  }
+  try { if (nav?.clipboard?.writeText) { await nav.clipboard.writeText(text); return 'copied'; } } catch { /* the older way below */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok ? 'copied' : 'failed';
+  } catch { return 'failed'; }
+}
+
+/** the invite button and what it says after: "נשלח ✓" or "הועתק ✓" for a few seconds */
+export function ShareButton({ text, label = COPY_WORDS, className = 'wk-btn red', style }: { text: string; label?: string; className?: string; style?: React.CSSProperties }) {
+  const [said, setSaid] = useState<ShareOutcome | null>(null);
+  const go = async () => {
+    const r = await shareOrCopy(text);
+    if (r === 'cancelled') return;
+    setSaid(r); setTimeout(() => setSaid(null), 4000);
+  };
+  return (
+    <>
+      <button className={className} style={style} onClick={go}>{said === 'copied' ? COPIED_WORDS : said === 'shared' ? SHARED_WORDS : label}</button>
+      {said === 'failed' && <p className="wk-muted" role="status" style={{ margin: '4px 0 0' }}>לא הצלחנו להעתיק לבד. סמן את ההודעה למטה והעתק.</p>}
+    </>
+  );
+}
+
 /* ------------------------------------------------------------------ a league filling up */
 
 export function FillingCard({ n, isOpener, kind, shareText }: { n: number; isOpener: boolean; kind: 'friends' | 'open'; shareText: string | null }) {
   const c = fillingCard(n, isOpener, kind);
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(shareText ?? ''); setCopied(true); setTimeout(() => setCopied(false), 4000); }
-    catch { /* no clipboard: the words are on the screen to select */ }
-  };
   return (
     <div className="wk-card wk-filling wk-in">
       <div className="wk-kick">{c.title}</div>
       <b>{c.head}</b>
       {c.lines.map((l, k) => <p key={k} className="wk-muted" style={{ margin: '4px 0 0' }}>{l}</p>)}
-      {isOpener && kind === 'friends' && shareText && (
-        <button className="wk-btn red" style={{ marginTop: 10, width: '100%' }} onClick={copy}>{copied ? COPIED_WORDS : COPY_WORDS}</button>
-      )}
+      {shareText && <ShareButton text={shareText} className={`wk-btn ${isOpener && kind === 'friends' ? 'red' : ''}`} style={{ marginTop: 10, width: '100%' }} />}
     </div>
   );
 }
