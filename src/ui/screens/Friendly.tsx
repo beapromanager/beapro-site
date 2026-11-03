@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as G from '../../game/state.ts';
 import { Crest } from '../components/Crest.tsx';
+import type { FriendlyReport } from '../../data/friendly.ts';
 
 /**
  * The works team's friendly, told after the sheet is sent.
@@ -29,8 +30,12 @@ export function FriendlyScreen({ gs, onDone }: { gs: G.GameState; onDone: () => 
     return () => t.forEach(clearTimeout);
   }, [total]);
   const done = step >= total + 1;
+  // Itzik, 3.11: after the friendly the league match started at once, with nothing
+  // between the two. A pause card now stands between them: what happened, what next.
+  const [pause, setPause] = useState(false);
   const skip = () => (done ? undefined : setStep(total + 1));
   const lit = step >= 1;
+  if (pause) return <FriendlyPause gs={gs} report={report} onDone={onDone} />;
 
   return (
     <div className="screen pad stack pad-b friendly" onClick={skip}>
@@ -77,9 +82,42 @@ export function FriendlyScreen({ gs, onDone }: { gs: G.GameState; onDone: () => 
 
       <button className="btn" disabled={!done}
         style={{ opacity: done ? 1 : 0, transition: 'opacity .3s ease' }}
-        onClick={e => { e.stopPropagation(); onDone(); }}>
-        למשחק הליגה
+        onClick={e => { e.stopPropagation(); setPause(true); }}>
+        המשך ←
       </button>
+    </div>
+  );
+}
+
+/** The pause between the friendly and the league: nothing is paid or played until המשך. */
+function FriendlyPause({ gs, report, onDone }: { gs: G.GameState; report: FriendlyReport; onDone: () => void }) {
+  const [mine, theirs] = report.score;
+  const verdict = mine > theirs ? 'ניצחנו בידידות' : mine < theirs ? 'הפסדנו בידידות' : 'תיקו בידידות';
+  const fx = G.playerFixture(gs);
+  const home = fx?.homeId === gs.clubId;
+  const rival = fx ? gs.league.clubs.find(c => c.id === (home ? fx.awayId : fx.homeId)) : undefined;
+  const c = G.club(gs);
+  // the men who played the friendly: finishFriendly adds FRIENDLY_TIRED to each of them on המשך
+  const squad = G.mySquad(gs);
+  const roster = new Map([...squad.starters, ...squad.bench].map(p => [p.id, p.name] as const));
+  const tired = report.played.map(id => roster.get(id)).filter((n): n is string => !!n);
+  return (
+    <div className="screen pad stack pad-b friendly-pause">
+      <div style={{ marginTop: 4 }}>
+        <div className="h2">משחק הידידות נגמר</div>
+        <div className="sub" style={{ fontSize: 13.5 }}>{verdict} מול {report.factory}</div>
+      </div>
+      <div className="tile">
+        <p>{c.short} <span className="num">{mine}</span>, {report.factory} <span className="num">{theirs}</span></p>
+        <p>הקופה: <bdi dir="ltr" className="num">+{report.fee.toLocaleString('en-US')}</bdi> שקל מ{report.factory}</p>
+        {tired.length > 0 && <p>עייפים קצת לקראת הליגה: {tired.join(', ')}.</p>}
+      </div>
+      <div className="tile">
+        <div className="h3">עכשיו: משחק ליגה</div>
+        <p>מחזור <span className="num">{gs.week}</span>{rival ? `, ${home ? 'בבית' : 'בחוץ'} מול ${rival.short}.` : '.'}</p>
+        <p>הנקודות כאן נספרות.</p>
+      </div>
+      <button className="btn" onClick={onDone}>המשך ←</button>
     </div>
   );
 }
