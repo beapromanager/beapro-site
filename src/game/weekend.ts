@@ -85,6 +85,9 @@ export class ApiError extends Error {
   constructor(status: number, message: string) { super(message); this.status = status; }
 }
 
+/** how long one request to the weekend server may take before the screen stops waiting for it */
+export const API_TIMEOUT_MS = 8_000;
+
 async function api<T>(path: string, body?: unknown): Promise<T> {
   // an address that already handed its career over to the new address opens no weekend door (transferLock.ts)
   if (weekendFrozen()) throw new ApiError(409, MOVED_WEEKEND_MSG);
@@ -93,9 +96,16 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
   if (!url.searchParams.has('device')) url.searchParams.set('device', dev);
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (DEBUG_NOW !== null) headers['x-now'] = String(serverNow());
-  const res = await fetch(url.toString(), body === undefined ? { method: 'GET', headers } : { method: 'POST', body: JSON.stringify({ device: dev, ...(body as object) }), headers });
+  // a line that swallows the request (a carrier stalling *.workers.dev, 3.11) gives up after API_TIMEOUT_MS and
+  // throws a plain error, so every caller shows its own "השרת לא עונה" and frees its buttons; nothing is resent
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), API_TIMEOUT_MS);
+  let res: Response;
   let data: unknown = null;
-  try { data = await res.json(); } catch { /* no body */ }
+  try {
+    res = await fetch(url.toString(), body === undefined ? { method: 'GET', headers, signal: ctl.signal } : { method: 'POST', body: JSON.stringify({ device: dev, ...(body as object) }), headers, signal: ctl.signal });
+    try { data = await res.json(); } catch (e) { if (ctl.signal.aborted) throw e; /* no body */ }
+  } finally { clearTimeout(timer); }
   if (!res.ok) throw new ApiError(res.status, (data as { error?: string })?.error ?? `שגיאה ${res.status}`);
   const d = data as { now?: number };
   if (typeof d?.now === 'number' && DEBUG_NOW === null) offset = d.now - Date.now();

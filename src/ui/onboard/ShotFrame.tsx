@@ -56,6 +56,9 @@ export function ShotFrame({ shot, shake, flash, playVideo = true, className, chi
  * beat (300ms): a cached or fast frame never flashes a spinner, a slow line
  * gets a visible "it is coming" instead of an empty gradient.
  */
+/** how long the ring waits for a still before it gives up and lets the frame be */
+export const LATE_GIVE_UP_MS = 8_000;
+
 function useLateImage(src: string | undefined): boolean {
   const [late, setLate] = useState(false);
   useEffect(() => {
@@ -66,8 +69,11 @@ function useLateImage(src: string | undefined): boolean {
     if (img.complete) return;
     let landed = false;
     const t = window.setTimeout(() => { if (!landed) setLate(true); }, 300);
-    img.onload = img.onerror = () => { landed = true; window.clearTimeout(t); setLate(false); };
-    return () => { window.clearTimeout(t); img.onload = img.onerror = null; };
+    // a download that never ends (3.11, a stalled line) stops showing the ring after LATE_GIVE_UP_MS: the gradient
+    // stays, the caption and "הקש להמשך" are there, and the beat can be left; the still still lands if it comes
+    const g = window.setTimeout(() => { landed = true; setLate(false); }, LATE_GIVE_UP_MS);
+    img.onload = img.onerror = () => { landed = true; window.clearTimeout(t); window.clearTimeout(g); setLate(false); };
+    return () => { window.clearTimeout(t); window.clearTimeout(g); img.onload = img.onerror = null; };
   }, [src]);
   return late;
 }
