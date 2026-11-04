@@ -185,6 +185,12 @@
 .wk-link{background:none; border:none; padding:8px 0; min-height:44px; color:var(--wk-ink-dim); font-weight:700; font-size:13px; text-decoration:underline; text-underline-offset:3px; cursor:pointer; font-family:var(--font-body); text-align:center; width:100%}
 .wk-sheet{position:fixed; inset:0; z-index:60; display:flex; align-items:flex-end; justify-content:center}
 .wk-sheet-bg{position:absolute; inset:0; background:rgba(5,9,7,.55)}
+.wk-need{position:relative; width:100%; max-width:480px; background:#F2EADB; color:#1B2A4A; border-radius:16px 16px 0 0; padding:22px 20px calc(20px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:12px; font-family:var(--font-body); text-align:start}
+.wk-need h2{font-family:"Secular One","Rubik","Heebo",system-ui,sans-serif; font-weight:400; font-size:24px; line-height:1.15; margin:0}
+.wk-need p{margin:0; font-size:15.5px; line-height:1.5; color:#5C6680}
+.wk-need button{min-height:48px; border-radius:6px; font-size:16.5px; font-weight:700; cursor:pointer}
+.wk-need .go{background:#D7263D; color:#FBF7EE; min-height:54px; font-family:"Secular One","Rubik","Heebo",system-ui,sans-serif; font-weight:400; font-size:19px}
+.wk-need .later{background:none; color:#1B2A4A}
 .wk-intro,.wk-faq{position:relative; width:100%; max-width:430px; max-height:92dvh; overflow-y:auto; overflow-x:hidden; background:var(--wk-paper); color:var(--wk-ink); border:2px solid var(--wk-ink); border-bottom:none; border-radius:10px 10px 0 0; padding:14px 16px calc(16px + env(safe-area-inset-bottom,0px)); display:flex; flex-direction:column; gap:10px; box-shadow:0 -10px 40px rgba(0,0,0,.4); touch-action:pan-y; font-family:var(--font-body)}
 .wk-intro{--wk-paper:#F2EADB; --wk-paper-2:#FBF7EE; --wk-ink:#1B2A4A; --wk-ink-dim:#5C6680; --wk-red:#D7263D; --font-wk:"Secular One","Rubik","Heebo",system-ui,sans-serif}
 .wk-faq{--wk-paper:#F2EADB; --wk-paper-2:#FBF7EE; --wk-ink:#1B2A4A; --wk-ink-dim:#5C6680; --wk-red:#D7263D; --font-wk:"Secular One","Rubik","Heebo",system-ui,sans-serif}

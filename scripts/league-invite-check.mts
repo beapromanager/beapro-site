@@ -67,6 +67,13 @@ claim(app.indexOf('leagueCodeFromUrl(location.search)') < app.indexOf("history.r
 claim(/initialCode=\{pendingInvite\(\) \?\? ''\}/.test(ui) && /useState\(initialCode\)/.test(ui), 'the join door does not take the code');
 claim(/const enter = \(id: string\) => \{ dropInvite\(\);/.test(ui), 'the invite is not dropped once in a league');
 
+/* 7. no career (Itzik, 4.11): the ticket says nothing beforehand, the tap brings up the message with the way to a career */
+claim(!/קודם קריירה/.test(ui), 'the tagline "קודם קריירה" is back');
+claim(!/hasCareer/.test(ui.slice(ui.indexOf('export function WeekendEntry'), ui.indexOf('export function NeedCareerSheet'))), 'the ticket reads the career again');
+claim(/onOpen=\{\(\) => \(saved \? setWeekendOpen\(true\) : setNeedCareer\(true\)\)\}/.test(app), 'a tap on the ticket with no career does not bring up the message');
+claim(/onStart=\{\(\) => \{ setNeedCareer\(false\); startNew\(\); \}\}/.test(app), 'the message does not lead to a new career');
+claim(/כדי להיכנס לליגה צריך קריירה/.test(ui) && /פותחים קריירה/.test(ui) && /לא עכשיו/.test(ui), 'the message does not say the words');
+
 console.log(`${checked} checks`);
 if (fails.length) { console.log(`FAIL (${fails.length} of ${checked})`); for (const f of fails.slice(0, 40)) console.log('  - ' + f); process.exit(1); }
 console.log('OK, the invite says what the game is, the league, the code, the rounds once and the way in, and the link fills the code');

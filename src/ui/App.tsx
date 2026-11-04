@@ -3,7 +3,7 @@ import * as G from '../game/state.ts';
 import { saveCareer, loadCareer, savedSummary, clearCareer } from '../game/save.ts';
 import type { SaveSummary } from '../game/save.ts';
 import { TitleScreen } from './screens/Title.tsx';
-import { WeekendEntry, WeekendRoot } from './weekend/Weekend.tsx';
+import { WeekendEntry, WeekendRoot, NeedCareerSheet } from './weekend/Weekend.tsx';
 import { weekendOn, serverNow, LAUNCH_AT, local as weekendLocal, setLocal as setWeekendLocal, keepInvite } from '../game/weekend.ts';
 import { leagueCodeFromUrl } from '../game/weekendInvite.ts';
 import type { PrizeToken } from '../game/weekend.ts';
@@ -134,6 +134,7 @@ function AppInner() {
       return !!code && keepInvite(code) && savedSummary() !== null && weekendOn(serverNow());
     } catch { return false; }
   });
+  const [needCareer, setNeedCareer] = useState(false);   // the ticket tapped with no career on this phone
   // the clock the league's door is read by: a tick a second until the launch has passed, then it stands still
   const [wkNow, setWkNow] = useState(() => serverNow());
   useEffect(() => {
@@ -416,8 +417,9 @@ function AppInner() {
       <div className="frame">
         <>
           <TitleScreen saved={saved} onNew={() => startNew()} onContinue={continueCareer} onInstall={() => setInstallOpen(true)}
-            extra={weekendOn(wkNow) ? <WeekendEntry hasCareer={!!saved} onOpen={() => setWeekendOpen(true)} /> : undefined} />
+            extra={weekendOn(wkNow) ? <WeekendEntry onOpen={() => (saved ? setWeekendOpen(true) : setNeedCareer(true))} /> : undefined} />
           {installOpen && <InstallSheet onClose={() => setInstallOpen(false)} />}
+          {needCareer && <NeedCareerSheet onStart={() => { setNeedCareer(false); startNew(); }} onClose={() => setNeedCareer(false)} />}
         </>
       </div>
     );

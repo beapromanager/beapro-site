@@ -48,7 +48,7 @@ export function Count({ to, now, className, style }: { to: number; now: number; 
 /* ------------------------------------------------------------ the ticket at the door */
 
 /** the card on the title screen, all week: what is open now, and a countdown to what is next */
-export function WeekendEntry({ onOpen, hasCareer }: { onOpen: () => void; hasCareer: boolean }) {
+export function WeekendEntry({ onOpen }: { onOpen: () => void }) {
   const invite = pendingInvite();
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(t); }, []);
@@ -74,8 +74,31 @@ export function WeekendEntry({ onOpen, hasCareer }: { onOpen: () => void; hasCar
         <span className="m">{line.m}</span>
       </div>
       {invite && !mine && <div className="m" style={{ marginTop: 4 }}>הוזמנת לליגה, הקוד <bdi dir="ltr">{invite}</bdi> מחכה לך</div>}
-      {!hasCareer && <div className="m" style={{ marginTop: 4 }}>קודם קריירה, אחר כך הליגה</div>}
     </button>
+  );
+}
+
+/**
+ * A tap on the ticket with no career on this phone (Itzik, 4.11): nothing on the ticket says so beforehand, the message
+ * comes up when someone actually asks to go in.
+ */
+export function NeedCareerSheet({ onStart, onClose }: { onStart: () => void; onClose: () => void }) {
+  const invite = pendingInvite();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="wk-sheet" role="dialog" aria-modal="true" aria-label="צריך קריירה" data-testid="need-career">
+      <div className="wk-sheet-bg" onClick={onClose} />
+      <div className="wk-need">
+        <h2>כדי להיכנס לליגה צריך קריירה</h2>
+        <p>ליגת השכונה פתוחה למי שיש לו קריירה במשחק. פותחים אחת, וחוזרים לכאן.{invite ? <> הקוד <bdi dir="ltr">{invite}</bdi> שמור לך.</> : null}</p>
+        <button className="go" onClick={onStart}>פותחים קריירה</button>
+        <button className="later" onClick={onClose}>לא עכשיו</button>
+      </div>
+    </div>
   );
 }
 
@@ -190,7 +213,7 @@ function Home({ saved, booting, err, go, onFaq }: { saved: SaveSummary | null; b
       </div>
       {err && <p className="wk-err">{err}</p>}
       {!saved ? (
-        <div className="wk-card"><b>קודם קריירה.</b> <span className="wk-muted">הליגה מחכה למי שיש לו קבוצה בבית. תפתח קריירה, ותחזור.{invite ? <> הקוד <bdi dir="ltr">{invite}</bdi> שמור לך כאן, ואפשר גם פשוט ללחוץ שוב על הלינק.</> : null}</span></div>
+        <div className="wk-card"><b>כדי להיכנס צריך קריירה.</b> <span className="wk-muted">פותחים אחת, וחוזרים לכאן.{invite ? <> הקוד <bdi dir="ltr">{invite}</bdi> שמור לך כאן, ואפשר גם פשוט ללחוץ שוב על הלינק.</> : null}</span></div>
       ) : !open ? (
         <div className="wk-card"><b>ההרשמה סגורה.</b> <span className="wk-muted">ליגות נפתחות מראשון 20:00 עד חמישי 17:00. אם אתה כבר בליגה, היא תיפתח כאן לבד.</span></div>
       ) : (
