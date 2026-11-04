@@ -74,6 +74,17 @@ claim(/onOpen=\{\(\) => \(saved \? setWeekendOpen\(true\) : setNeedCareer\(true\
 claim(/onStart=\{\(\) => \{ setNeedCareer\(false\); startNew\(\); \}\}/.test(app), 'the message does not lead to a new career');
 claim(/כדי להיכנס לליגה צריך קריירה/.test(ui) && /פותחים קריירה/.test(ui) && /לא עכשיו/.test(ui), 'the message does not say the words');
 
+/* 8. the way home (Itzik, 4.11): from everywhere but a live match, and out of the career to the league without leaving the game */
+const bits = readFileSync('src/ui/components/bits.tsx', 'utf8');
+const noHome = app.slice(app.indexOf('const NO_WAY_HOME'), app.indexOf(']);', app.indexOf('const NO_WAY_HOME')));
+for (const p of ['match', 'friendly', 'euro-match', 'euro-pens', 'cup-match', 'cup-pens']) claim(noHome.includes(`'${p}'`), `a live match (${p}) has a way home`);
+for (const p of ['hub', 'squad', 'transfers', 'table', 'teamsheet', 'result', 'press', 'season-end', 'dilemma', 'tactic', 'packs']) claim(!noHome.includes(`'${p}'`), `${p} has no way home`);
+claim(/className="meters-home"/.test(bits) && /homeHandler\?\.\(\)/.test(bits), 'the bar has no way home');
+claim(/!NO_WAY_HOME\.has\(gs\.phase\)[\s\S]{0,60}home-float/.test(app), 'a screen without the bar has no way home');
+const home = app.slice(app.indexOf('function goHome()'), app.indexOf('goHomeRef.current = goHome'));
+claim(/saveCareer\(g\)/.test(home) && /setBooted\(false\)/.test(home) && home.indexOf('saveCareer(g)') < home.indexOf('setBooted(false)'), 'home does not write the career before leaving it');
+claim(/onContinue=\{continueCareer\}/.test(app) && /loadCareer\(\)/.test(app.slice(app.indexOf('function bootCareer'), app.indexOf('function continueCareer'))), 'the title does not read the career back from storage');
+
 console.log(`${checked} checks`);
 if (fails.length) { console.log(`FAIL (${fails.length} of ${checked})`); for (const f of fails.slice(0, 40)) console.log('  - ' + f); process.exit(1); }
 console.log('OK, the invite says what the game is, the league, the code, the rounds once and the way in, and the link fills the code');

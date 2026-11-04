@@ -1165,9 +1165,25 @@ body.dragging{user-select:none; -webkit-user-select:none; cursor:grabbing;}
 }
 .meters-report:active{transform:scale(.94);}
 
+/* the way home to the title (Itzik, 4.11): in the bar where the bar is, and on its own in the same corner on a screen
+   without one. Not during a live match: App.tsx, NO_WAY_HOME */
+.meters-home,.home-float{
+  flex:none; width:34px; height:32px; border-radius:11px;
+  display:grid; place-items:center; cursor:pointer;
+  background:rgba(255,255,255,.12); color:var(--ink);
+  border:1px solid rgba(255,255,255,.26);
+}
+.meters-home:active,.home-float:active{transform:scale(.94);}
+.home-float{
+  position:absolute; z-index:15; left:14px; top:calc(10px + env(safe-area-inset-top));
+  width:40px; height:40px; background:rgba(8,15,11,.72);
+}
+.home-float::after{content:""; position:absolute; inset:-3px}
+.frame:has(.meters) .home-float{display:none}
+
 /* onto the home screen. Sits beside the share button in the always-on bar */
 .meters-install{
-  flex:none; width:34px; height:34px; border-radius:11px;
+  flex:none; width:34px; height:32px; border-radius:11px;
   display:grid; place-items:center;
   background:rgba(255,255,255,.07); color:var(--ink-dim);
   border:1px solid var(--line-2);
@@ -1530,7 +1546,7 @@ a.btn{text-decoration:none;}
   .meter .top{gap:0;}
   .meter .top .meter-ic{display:none;}
   .gem-pill{min-width:44px; padding:8px 8px 9px;}
-  .meters-share,.meters-install,.meters-report{width:32px; height:30px;}
+  .meters-share,.meters-install,.meters-report,.meters-home{width:32px; height:30px;}
 }
 /* ------------------------------------------------ the dressing room board */
 /* The team sheet in chalk. The room is darker than the rest of the game, one

@@ -22,6 +22,10 @@ export function setInviteHandler(fn: (() => void) | null): void { inviteHandler 
 let installHandler: (() => void) | null = null;
 export function setInstallHandler(fn: (() => void) | null): void { installHandler = fn; }
 
+/** And for the way home to the title (Itzik, 4.11): out of the career to the league and back, from any screen but a live match. */
+let homeHandler: (() => void) | null = null;
+export function setHomeHandler(fn: (() => void) | null): void { homeHandler = fn; }
+
 /** And for reporting a fault, which sits under the share button on every screen. */
 let reportHandler: (() => void) | null = null;
 export function setReportHandler(fn: (() => void) | null): void { reportHandler = fn; }
@@ -60,11 +64,18 @@ export function Meters({ money, morale, prestige, fans, gems }: {
           and none of them should have to know about installing. Chrome fires
           its event a moment after load, and the bar redraws often enough to
           pick it up. Absent on desktop and once the game is already installed. */}
-      {gems !== undefined && offerInstall && (
-        <button className="meters-install" onClick={() => installHandler?.()}
-          aria-label="שים את המשחק על מסך הבית" title="הוסף למסך הבית">
-          <Icon name="download" size={16} />
-        </button>
+      {gems !== undefined && (
+        <div className="meters-side">
+          <button className="meters-home" onClick={() => homeHandler?.()} aria-label="לדף הבית של המשחק" title="לדף הבית" data-testid="go-home">
+            <Icon name="home" size={17} />
+          </button>
+          {offerInstall && (
+            <button className="meters-install" onClick={() => installHandler?.()}
+              aria-label="שים את המשחק על מסך הבית" title="הוסף למסך הבית">
+              <Icon name="download" size={15} />
+            </button>
+          )}
+        </div>
       )}
       {/* the same condition as the gems: a career is running. Keying it off the
           handler instead would not work, because a module variable changing

@@ -66,7 +66,8 @@ import { DAILY_LIVE, GOLD_EVERY } from '../game/daily.ts';
 import type { DailyReward } from '../game/daily.ts';
 import { CoachScreen } from './screens/Coach.tsx';
 import { InviteScreen } from './screens/Invite.tsx';
-import { setInviteHandler, setInstallHandler, setReportHandler } from './components/bits.tsx';
+import { setInviteHandler, setInstallHandler, setReportHandler, setHomeHandler } from './components/bits.tsx';
+import { Icon } from './components/Icon.tsx';
 import { InstallSheet } from './components/InstallSheet.tsx';
 import { refFromUrl } from '../game/invite.ts';
 import { scrollToTop } from './scroll.ts';
@@ -93,6 +94,15 @@ import type { Ad } from '../data/ads.ts';
  */
 const BACK_TO_HUB = new Set<G.Phase>([
   'squad', 'youth', 'stadium', 'coach', 'packs', 'captain', 'assistant', 'scout', 'euro-bracket', 'cup-bracket',
+]);
+
+/**
+ * Where there is no way home to the title (Itzik, 4.11, "חוץ מזמן משחק עצמו"): a live match and its shootout, and the
+ * first run, where nothing is saved yet to come back to. Everywhere else it is one tap, in the bar or in the same corner.
+ */
+const NO_WAY_HOME = new Set<G.Phase>([
+  'match', 'friendly', 'vs', 'euro-match', 'euro-pens', 'cup-match', 'cup-pens',
+  'onboard-archetype', 'onboard-manager', 'onboard-club', 'ob-prologue', 'ob-city', 'ob-names', 'signing', 'friends',
 ]);
 
 /**
@@ -170,6 +180,9 @@ function AppInner() {
   // The key remounts the player for a fresh sitting when he asks to watch again
   const [ad, setAd] = useState<{ ad: Ad; key: number } | null>(null);
   const adBack = useRef<(() => void) | null>(null);
+  // came back to the title from the game: the phone's back button is ours by then, see the handler below
+  const cameHome = useRef(false);
+  const goHomeRef = useRef<() => void>(() => {});
   const [ref] = useState<string | null>(() => {
     try { return refFromUrl(location.search); } catch { return null; }
   });
@@ -181,13 +194,14 @@ function AppInner() {
   // one handler for the share button that sits in the meters bar on every
   // screen. The functional update keeps it from closing over a stale state
   useEffect(() => {
-    if (!booted) { setInviteHandler(null); setInstallHandler(null); setReportHandler(null); return; }
+    if (!booted) { setInviteHandler(null); setInstallHandler(null); setReportHandler(null); setHomeHandler(null); return; }
     setInviteHandler(() => setGs(prev => G.openInvite(prev)));
     // the install offer is a sheet rather than a phase, so it can be opened
     // from the middle of anything without losing where the manager was
     setInstallHandler(() => setInstallOpen(true));
     setReportHandler(() => setReportOpen(true));
-    return () => { setInviteHandler(null); setInstallHandler(null); setReportHandler(null); };
+    setHomeHandler(() => goHomeRef.current());
+    return () => { setInviteHandler(null); setInstallHandler(null); setReportHandler(null); setHomeHandler(null); };
   }, [booted]);
 
   // an invite link is read once on load; then the address bar is tidied so a
@@ -227,7 +241,18 @@ function AppInner() {
    * before it lets go of him.
    */
   useEffect(() => {
-    if (!booted) { setBackHandler(null); return; }
+    if (!booted) {
+      // Before the game was ever opened nothing is armed and back leaves the site. After coming home from the game the
+      // spare entry is still there, so the button has to be answered here: sheets, then the league, then out of the site.
+      setBackHandler(!cameHome.current ? null : () => {
+        if (installOpen) { setInstallOpen(false); return true; }
+        if (needCareer) { setNeedCareer(false); return true; }
+        if (weekendOpen) { setWeekendOpen(false); return true; }
+        leaveGame();
+        return true;
+      });
+      return;
+    }
     armBack();
     setBackHandler(() => {
       // sheets first: they sit on top of whatever screen is behind them
@@ -254,7 +279,7 @@ function AppInner() {
       return false;
     });
     return () => setBackHandler(null);
-  }, [booted, gs.phase, squadFromHub, fromPreseason, installOpen, exitOpen, reportOpen, ad]);
+  }, [booted, gs.phase, squadFromHub, fromPreseason, installOpen, exitOpen, reportOpen, ad, weekendOpen, needCareer]);
 
   // Every new page starts at the top. The phase alone is not enough: the press
   // room asks two questions and the summer runs three market rounds without it
@@ -387,6 +412,33 @@ function AppInner() {
   }
   function continueCareer() { bootCareer(); }
 
+  /**
+   * Home to the title (Itzik, 4.11). The career is written first and "המשך קריירה" reads it back, the same road as closing
+   * the tab and coming back, so nothing is owed or lost. A room off the hub is left the way its own back button leaves
+   * it, because the squad and the market remember who opened them only in memory.
+   */
+  function goHome() {
+    let g = gs.phase === 'invite' ? G.closeInvite(gs) : gs;
+    if (g.phase === 'transfers') g = fromPreseason ? G.backToPreseason(g) : G.backToHub(g);
+    else if (g.phase === 'squad') { if (squadFromHub) g = G.backToHub(g); }
+    else if (g.phase === 'inbox') g = G.closeInbox(g);
+    else if (g.phase === 'chronicle') g = G.closeChronicle(g);
+    else if (g.phase === 'table') g = G.closeTable(g);
+    else if (BACK_TO_HUB.has(g.phase)) g = G.backToHub(g);
+    saveCareer(g);
+    // storage blocked (a private window): the career lives only in this tab, and the title could not bring it back
+    const summary = savedSummary();
+    if (!summary) return;
+    setGs(g);
+    setSquadFromHub(false); setFromPreseason(false);
+    setDailyOpen(false); setDailyWow(null);
+    setInstallOpen(false); setExitOpen(false); setReportOpen(false); setAd(null);
+    setSaved(summary);
+    cameHome.current = true;
+    setBooted(false);
+  }
+  goHomeRef.current = goHome;
+
   if (moved) {
     return (
       <div className="frame">
@@ -427,6 +479,11 @@ function AppInner() {
 
   return (
     <div className="frame" data-stage={gs.phase === 'euro-match' || gs.phase === 'euro-pens' || gs.phase === 'euro-draw' || gs.phase === 'euro-bracket' ? 'euro' : gs.phase === 'cup-match' || gs.phase === 'cup-pens' || gs.phase === 'cup-draw' || gs.phase === 'cup-bracket' ? 'cup' : undefined}>
+      {!NO_WAY_HOME.has(gs.phase) && (
+        <button className="home-float" onClick={goHome} aria-label="לדף הבית של המשחק" title="לדף הבית" data-testid="go-home-float">
+          <Icon name="home" size={19} />
+        </button>
+      )}
       {gs.phase === 'onboard-archetype' && (
         <ArchetypeScreen gs={gs} onPick={id => setGs(G.setArchetype(gs, id))} />
       )}

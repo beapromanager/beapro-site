@@ -8,7 +8,7 @@ export type IconName =
   | 'alert' | 'glove' | 'trophy' | 'coins' | 'star' | 'flame'
   | 'chevron' | 'play' | 'pause' | 'shirt' | 'mic' | 'crowd'
   | 'whistle' | 'flag' | 'target' | 'handshake' | 'calendar' | 'boot'
-  | 'download' | 'share';
+  | 'download' | 'share' | 'home';
 
 const S = { stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, fill: 'none' };
 
@@ -124,6 +124,15 @@ function body(name: IconName) {
           <circle cx="17.5" cy="6.2" r="2.2" />
           <circle cx="17.5" cy="17.8" r="2.2" />
           <path d="m8.5 10.9 7-3.6M8.5 13.1l7 3.6" />
+        </g>
+      );
+    // the game's own front page (Itzik, 4.11)
+    case 'home':
+      return (
+        <g {...S}>
+          <path d="M3.8 11.2 12 4.2l8.2 7" />
+          <path d="M6.2 9.4v9.2a1.4 1.4 0 0 0 1.4 1.4h8.8a1.4 1.4 0 0 0 1.4-1.4V9.4" />
+          <path d="M10 20v-5.4h4V20" />
         </g>
       );
     // onto the home screen: an arrow into a tray
