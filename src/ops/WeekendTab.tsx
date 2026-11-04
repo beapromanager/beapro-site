@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { StatsRaw } from './model.ts';
 import { buildWeekend, leftText, whenText, STATUS_LABEL, type WeekendView } from './weekend.ts';
 import { num, pctText, shortDay } from './format.ts';
+import WeekendLeagues from './WeekendLeagues.tsx';
 
 /**
  * ליגת סופ״ש: its own tab, loaded only when the owner opens it (App.tsx, React.lazy). Every number here is a count that
@@ -137,6 +138,8 @@ export default function WeekendTab({ raw, now: fetched }: { raw: StatsRaw; now: 
               </p>
             </Sec>
 
+            <WeekendLeagues raw={raw} />
+
             <Sec title="הליגות (בלי שמות)" wide>
               {w.rows.length === 0 ? <p className="empty">אין עדיין ליגות בסבב הזה.</p> : (
                 <div className="tw">
@@ -217,7 +220,7 @@ export default function WeekendTab({ raw, now: fetched }: { raw: StatsRaw; now: 
       </div>
       <ul className="notes">
         {w && <li>סירובים וחוזרים נספרים מ-<bdi className="num">{whenText(w.since)}</bdi>; ההרשמות לפי יום נבנות מהליגות עצמן, ולכן מלאות גם לפני זה.</li>}
-        <li>רק ספירות. אין כאן שמות, כינויים, קודים או מזהים, וגם השרת לא שולח אותם.</li>
+        <li>שמות ליגות, קודי ליגת חברים ושמות קבוצות מוצגים רק בחלק "ליגות, טבלאות ותוצאות". מזהי מכשיר לא מגיעים לכאן אף פעם.</li>
         <li className="w">שער הגיל לא נמדד, והמעבר ממבקר לנרשם הוא הערכה בלבד.</li>
       </ul>
     </>

@@ -20,7 +20,8 @@ import { labelOf, OB_NOT_SENT_YET, OB_LABEL } from '../src/ops/labels.ts';
 import { buildView, worstFall, road } from '../src/ops/model.ts';
 import * as api from '../src/ops/api.ts';
 import { buildWeekend } from '../src/ops/weekend.ts';
-import { MOCK_KEY, NOW, basic, full, withWeekend, weekendV2, weekendErr, WK, WK_NOW } from './ops-fixture.mjs';
+import { buildLeagues, scoreText } from '../src/ops/weekendLeagues.ts';
+import { MOCK_KEY, NOW, basic, full, withWeekend, weekendV2, weekendErr, WK, WK_NOW, weekendLeaguesWorld } from './ops-fixture.mjs';
 
 const fails: string[] = [];
 let checked = 0;
@@ -211,6 +212,20 @@ if (fails.length) { console.log(`ops check: ${fails.length} of ${checked} failed
   const odd = weekendV2('reg') as any; odd.ext.weekend.leagues = 'x'; odd.ext.weekend.byDay = null; odd.ext.weekend.history = [{}];
   let threw = false; try { buildWeekend(odd as never, WK_NOW.reg); } catch { threw = true; }
   ok(!threw, 'weekend: a strange answer throws');
+}
+
+/* 9. per-league detail (draft 4.11, ext.weekendLeagues) */
+{
+  ok(buildLeagues(weekendV2('reg') as never).state === 'not-yet', 'leagues: no ext.weekendLeagues should say not-yet');
+  ok(buildLeagues(weekendLeaguesWorld('zero') as never).leagues.length === 0, 'leagues zero');
+  const r = buildLeagues(weekendLeaguesWorld('reg') as never);
+  ok(r.leagues.length === 3 && r.leagues[0].kind === 'friend' && r.leagues[2].label === 'פתוחה 1', `leagues reg: ${r.leagues.map(l => l.label)}`);
+  const p = buildLeagues(weekendLeaguesWorld('play') as never);
+  ok(p.leagues[0].roundsDone === 3 && p.leagues[0].current?.index === 3 && p.leagues[0].table[0].points === 9, 'leagues play: rounds/table');
+  ok(scoreText(p.leagues[0].rounds[0].matches[0]) === '3:1' && scoreText(p.leagues[0].rounds[3].matches[1]) === 'טרם שוחק', 'leagues: score text');
+  const odd = weekendLeaguesWorld('play') as any; odd.ext.weekendLeagues.leagues[0].rounds = 'x'; odd.ext.weekendLeagues.leagues[0].table = null;
+  let threw = false; try { buildLeagues(odd); } catch { threw = true; } ok(!threw, 'leagues: a strange answer throws');
+  ok(!JSON.stringify(p).includes('device'), 'leagues: a device field in the view');
 }
 
 console.log(`ops check: all ${checked} good`);

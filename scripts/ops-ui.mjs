@@ -19,7 +19,7 @@ import { readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
-import { MOCK_KEY, basic, full, withWeekend, weekendV2, weekendErr } from './ops-fixture.mjs';
+import { MOCK_KEY, basic, full, withWeekend, weekendV2, weekendErr, weekendLeaguesWorld } from './ops-fixture.mjs';
 
 const PW_DIR = process.env.PW_DIR;
 let pw = null;
@@ -217,6 +217,9 @@ const WORLDS = [
   ['v1', withWeekend, ['37', 'דורש את עדכון השרתים של הליגה']],
   ['unwired', full, ['עוד לא מחובר', 'WEEKEND_STATS_SECRET']],
   ['timeout', () => weekendErr('timeout'), ['לא ענה בזמן']],
+  ['lg-zero', () => weekendLeaguesWorld('zero'), ['ליגות, טבלאות ותוצאות', 'אין עדיין ליגות בסבב הזה']],
+  ['lg-reg', () => weekendLeaguesWorld('reg'), ['החבר׳ה מהעבודה', 'WX4P9', 'ליגת השכונה', 'פתוחה 1', 'חברים (2)']],
+  ['lg-play', () => weekendLeaguesWorld('play'), ['החבר׳ה מהעבודה', 'מחזור 3/4', 'הסתיימה']],
 ];
 let n = 10;
 for (const [name, answer, words] of WORLDS) {
@@ -234,8 +237,11 @@ for (const [name, answer, words] of WORLDS) {
   ok(await page.getByRole('radiogroup', { name: 'טווח זמן' }).count() === 0, `weekend ${name}: the range shows on the weekend tab`);
   await layout(page, `weekend ${name}`);
   const text = await page.locator('main').innerText();
+  if (name.startsWith('lg-')) { for (const d of await page.locator('details.lg').all()) await d.locator('summary').click(); await page.waitForTimeout(200); }
+  const textAll = name.startsWith('lg-') ? await page.locator('main').innerText() : text;
+  if (name === 'lg-play') for (const t of ['מכבי איציק', 'טרם שוחק', 'משחקים עכשיו', 'נשרים', 'עוזר']) ok(textAll.includes(t), `weekend ${name}: "${t}" not shown when opened`);
   for (const t of words) ok(text.includes(t), `weekend ${name}: "${t}" not shown`);
-  ok(!/K7Q2ZZ|lg_|dev_|@/.test(text), `weekend ${name}: something like a code, id or email shown`);
+  ok(!(name.startsWith('lg-') ? /lg_|dev_|@/ : /K7Q2ZZ|lg_|dev_|@/).test(text), `weekend ${name}: something like a code, id or email shown`);
   if (name === 'unwired' || name === 'timeout') ok(!/\d{2,}/.test(text.replace(/WEEKEND_STATS_SECRET|beapro-\w+/g, '')), `weekend ${name}: numbers drawn without the league's answer`);
   if (name === 'reg') {
     await shot(page, `${n++}-weekend-reg-top-390`);

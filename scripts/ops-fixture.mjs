@@ -111,3 +111,42 @@ export function weekendV2(stage = 'reg') {
   f.ext.weekendErr = null;
   return f;
 }
+
+/* draft 4.11: ext.weekendLeagues (dashboard_weekend_leagues_worker.patch), made-up clubs and codes */
+const T = (club, played, wins, gf, ga) => ({ club, played, wins, losses: played - wins, gf, ga, points: wins * 3, assistant: 0 });
+const R = (index, at, pairs) => ({ index, at, bye: null, matches: pairs.map(([home, away, s]) => ({ home, away, started: !!s, result: s && s.length ? { score: s, shootout: null, winner: s[0] > s[1] ? 'home' : 'away', technical: null, homeAssistant: false, awayAssistant: index === 1 && home === 'הפועל שכונה' } : null })) });
+export function weekendLeaguesWorld(stage) {
+  if (stage === 'zero') {
+    const f = weekendV2('reg');
+    Object.assign(f.ext.weekend, { managers: 0, friendLeagues: 0, openLeagues: 0, openMembers: 0, known: 0, returning: 0, leagues: [], byDay: [{ day: '2026-11-08', n: 0 }], fill: { full: 0, enough: 0, short: 0, seats: 0 }, status: { open: 0, locked: 0, playing: 0, done: 0, cancelled: 0 } });
+    f.ext.weekendLeagues = { v: 1, now: WK_NOW.reg, total: 0, leagues: [] };
+    return f;
+  }
+  if (stage === 'reg') {
+    const f = weekendV2('reg');
+    const m = (names) => names.map(n => T(n, 0, 0, 0, 0));
+    f.ext.weekendLeagues = { v: 1, now: WK_NOW.reg, total: 3, leagues: [
+      { kind: 'friend', status: 'open', name: 'החבר׳ה מהעבודה', code: 'WX4P9', members: 4, capacity: 12, table: m(['מכבי איציק', 'הפועל שכונה', 'בית״ר דודו', 'עירוני רון']), rounds: [] },
+      { kind: 'friend', status: 'open', name: 'ליגת השכונה', code: 'QH7M2', members: 2, capacity: 12, table: m(['אדומים', 'כחולים']), rounds: [] },
+      { kind: 'open', status: 'open', name: '', code: null, members: 5, capacity: 6, table: m(['נשרים', 'אריות', 'כרישים', 'זאבים', 'נמרים']), rounds: [] },
+    ] };
+    return f;
+  }
+  const f = weekendV2('play');
+  const k = Date.parse('2026-11-12T18:00:00Z'), H = 3_600_000;
+  const clubs = ['מכבי איציק', 'הפועל שכונה', 'בית״ר דודו', 'עירוני רון', 'אדומים', 'כחולים'];
+  f.ext.weekendLeagues = { v: 1, now: WK_NOW.play, total: 2, leagues: [
+    { kind: 'friend', status: 'playing', name: 'החבר׳ה מהעבודה', code: 'WX4P9', members: 6, capacity: 12,
+      table: [T(clubs[0], 3, 3, 8, 2), T(clubs[2], 3, 2, 6, 4), T(clubs[1], 3, 2, 5, 4), T(clubs[3], 3, 1, 3, 5), T(clubs[4], 3, 1, 2, 5), T(clubs[5], 3, 0, 1, 5)],
+      rounds: [
+        R(0, k, [[clubs[0], clubs[1], [3, 1]], [clubs[2], clubs[3], [2, 0]], [clubs[4], clubs[5], [1, 0]]]),
+        R(1, k + 20 * H, [[clubs[1], clubs[2], [2, 1]], [clubs[0], clubs[4], [3, 0]], [clubs[3], clubs[5], [2, 1]]]),
+        R(2, k + 24 * H, [[clubs[0], clubs[3], [2, 1]], [clubs[2], clubs[5], [3, 0]], [clubs[1], clubs[4], [2, 1]]]),
+        R(3, k + 44 * H, [[clubs[0], clubs[2], []], [clubs[1], clubs[3], null], [clubs[4], clubs[5], null]]),
+      ] },
+    { kind: 'open', status: 'done', name: '', code: null, members: 6, capacity: 6,
+      table: [T('נשרים', 5, 4, 11, 4), T('אריות', 5, 3, 9, 7), T('כרישים', 5, 3, 8, 8), T('זאבים', 5, 2, 6, 8), T('נמרים', 5, 2, 5, 7), T('דובים', 5, 1, 4, 9)],
+      rounds: [R(0, k, [['נשרים', 'דובים', [3, 0]], ['אריות', 'נמרים', [2, 1]], ['כרישים', 'זאבים', [1, 2]]])] },
+  ] };
+  return f;
+}
