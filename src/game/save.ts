@@ -300,6 +300,12 @@ export function loadCareer(): GameState | null {
   // the crest card between the tactics and the dressing room is gone; a save
   // that was left standing on it opens on the board that followed it
   if (patched.phase === 'vs') return { ...patched, phase: 'teamsheet' };
+  // Who opened the squad and the market is held only in memory (App.tsx), so a reload forgot it: the squad off the hub
+  // came back as the first-time squad, whose button opens the summer in the middle of a season, and the summer's market
+  // backed out onto the hub with the summer still running (Itzik, 4.11). Only the very first run stands on the squad.
+  const firstRun = !patched.obV2 && patched.season === 1 && patched.week === 1 && Object.keys(patched.contracts ?? {}).length === 0;
+  if (patched.phase === 'squad' && !firstRun) return { ...patched, phase: 'hub' };
+  if (patched.phase === 'transfers' && patched.preWeek > 0) return { ...patched, phase: 'preseason-market' };
   return patched;
 }
 

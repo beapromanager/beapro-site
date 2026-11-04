@@ -56,6 +56,7 @@
     "check:penalty": "node --experimental-strip-types scripts/penalty-check.mts",
     "check:discipline": "node --experimental-strip-types scripts/discipline-check.mts",
     "check:back": "node --experimental-strip-types scripts/back-check.mts",
+    "check:reload": "node --experimental-strip-types scripts/reload-check.mts",
     "check:breakout": "node --experimental-strip-types scripts/breakout-check.mts",
     "check:voice": "node --experimental-strip-types scripts/voice-check.mts",
     "check:shape": "node --experimental-strip-types scripts/shape-check.mts",
